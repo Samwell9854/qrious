@@ -11,7 +11,7 @@ Flutter app that generates QR codes from structured input. Pick a format (WiFi, 
 ```bash
 flutter run -d linux                      # run the app
 flutter analyze                           # lints (flutter_lints 6); must be clean
-flutter test                              # widget, layout and version tests
+flutter test                              # format, widget, layout and version tests
 dart format lib test tool                 # before committing
 dart run tool/new_release.dart --dry-run  # release checks without tagging
 ```
@@ -60,4 +60,3 @@ Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` numbe
 ## Known rough edges
 
 - **iOS is not scaffolded.** There is no `ios/` directory, so the app cannot be built for a device until someone runs `flutter create --platforms=ios .` — which generates a bundle identifier and signing config that need deciding on.
-- The `buildQrString` implementations have no unit tests of their own; they are only exercised through the widget tests.

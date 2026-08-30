@@ -60,8 +60,10 @@ Escaping rules differ per spec and belong inside the format class:
 
 ## Adding a format
 
-1. Create `lib/formats/<name>_format.dart` with a class extending `QrFormat`. 2. Declare `id`, `name`, a `const` `fields` list, and `buildQrString`. 3. Register it in `_formats` in
-   [lib/screens/home_screen.dart](../lib/screens/home_screen.dart) — the list
-   order is the dropdown order.
+1. Create `lib/formats/<name>_format.dart` with a class extending `QrFormat`.
+2. Declare `id`, `name`, a `const` `fields` list, and `buildQrString`.
+3. Register it in `_formats` in [lib/screens/home_screen.dart](../lib/screens/home_screen.dart) — the list order is the dropdown order.
+4. Add `test/formats/<name>_format_test.dart` covering the empty map, optional fields omitted when empty, and whatever escaping the spec calls for.
+5. Add it to `formats` in [test/formats/format_contract_test.dart](../test/formats/format_contract_test.dart) so the shared contract checks cover it too.
 
 No UI changes are needed. If a format genuinely needs a widget the five `QrFieldType` values cannot express, add the enum case *and* its branch in `_buildField`, plus its initial value in `_initControllers`; otherwise leave both alone.
