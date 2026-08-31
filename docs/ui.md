@@ -33,13 +33,17 @@ Fields themselves are dispatched on `field.type` by `_buildField` via a `switch`
 
 `_buildQrPanel({required double qrSize, required bool expandPreview})` renders the `QrImageView` on a forced white rounded container (so it scans in dark mode) when `_isReady && qrString.isNotEmpty`, otherwise a placeholder prompt. Below it: a `SelectableText` of the raw payload in monospace, plus a copy-to-clipboard `IconButton` with a snackbar confirmation. `errorStateBuilder` handles payloads too large to encode (reachable with a long vCard or free text).
 
-## Saving the code
+## Saving and copying the code
 
-The preview panel carries a **Save PNG** button, enabled on the same condition as the preview itself. It asks where to save through [pickPngSaveLocation](../lib/save_location.dart), renders the image with [renderQrPng](../lib/qr_png.dart) and writes it; cancelling is not a failure and says nothing, and a write that fails reports itself in a snackbar rather than throwing.
+The preview panel carries **Save PNG** and **Copy image** buttons, both enabled on the same condition as the preview itself, side by side in a `Row` of `Expanded` children so two buttons still fit the phone layout. **Copy image** is only built where [imageClipboardSupported](../lib/image_clipboard.dart) is true. It asks where to save through [pickPngSaveLocation](../lib/save_location.dart), renders the image with [renderQrPng](../lib/qr_png.dart) and writes it; cancelling is not a failure and says nothing, and a write that fails reports itself in a snackbar rather than throwing.
 
 The saved image is not the widget on screen. `QrPainter` paints modules and nothing else, so the preview relies on its white `Container` for a background and on the panel's padding for the quiet zone the spec requires — neither of which exists in a file. `renderQrPng` therefore paints black on an opaque white square with its own margin, whatever the theme is doing, because a transparent PNG dropped on a dark background is a code no scanner can read.
 
-`HomeScreen` takes a `pickSaveLocation` seam, defaulted to the real dialog. The dialog is the one part of saving that cannot run headless; rendering and writing are exercised for real in [test/save_qr_test.dart](../test/save_qr_test.dart), against a temp directory.
+Copying goes around Flutter entirely. `Clipboard.setData` carries `text/plain` and nothing else, so [copyPngToClipboard](../lib/image_clipboard.dart) pipes the PNG to a session clipboard helper on stdin: `wl-copy` on Wayland, `xclip` on X11. A Wayland session without `wl-clipboard` installed falls through to `xclip` rather than giving up, because XWayland makes it work — the common case on a desktop that has one but not the other. Both helpers fork a child to hold the selection and exit immediately, so the exit code is worth waiting for. When neither is installed the error names what to install, and that message reaches the user unchanged.
+
+This is a **Linux-only stopgap**. iOS has an image clipboard that Flutter does not expose, so it will need a platform channel or a package like `super_clipboard`, which works everywhere but requires a Rust toolchain — a cost worth paying once there is a second platform to pay it for, not before. Everything is behind one function to keep that swap cheap.
+
+`HomeScreen` takes `pickSaveLocation` and `copyImage` seams, defaulted to the real dialog and the real clipboard. Those are the parts that cannot run headless; rendering, writing and the helper choice are exercised for real in [test/save_qr_test.dart](../test/save_qr_test.dart), [test/copy_image_test.dart](../test/copy_image_test.dart) and [test/image_clipboard_test.dart](../test/image_clipboard_test.dart) — the last of which round-trips a PNG through the actual clipboard when a helper is present, and skips itself when there is not one.
 
 ## The version badge
 

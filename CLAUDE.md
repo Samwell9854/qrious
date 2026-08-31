@@ -28,6 +28,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/widgets/version_badge.dart](lib/widgets/version_badge.dart) | The version chip in the app bar |
 | [lib/qr_png.dart](lib/qr_png.dart) | Renders the QR code to a PNG for saving — black on white, with a quiet zone |
 | [lib/save_location.dart](lib/save_location.dart) | The save dialog, behind a typedef the screen can stub in tests |
+| [lib/image_clipboard.dart](lib/image_clipboard.dart) | Copies a PNG to the clipboard by piping it to `wl-copy` or `xclip` |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |
 | [tool/](tool/) | Release tooling — the version format rule, the tagging script, and the build-number bump |
 
@@ -62,4 +63,5 @@ Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` numbe
 
 ## Known rough edges
 
+- **Copying the QR image is Linux-only.** It shells out to `wl-copy` or `xclip`, because Flutter's `Clipboard` carries text only. iOS will need a platform channel or `super_clipboard` (which requires a Rust toolchain); the whole thing sits behind `copyPngToClipboard` so the swap is cheap.
 - **iOS is not scaffolded.** There is no `ios/` directory, so the app cannot be built for a device until someone runs `flutter create --platforms=ios .` — which generates a bundle identifier and signing config that need deciding on.

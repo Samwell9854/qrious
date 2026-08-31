@@ -11,15 +11,19 @@ import '../formats/vcard_format.dart';
 import '../formats/wifi_format.dart';
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import '../image_clipboard.dart';
 import '../qr_png.dart';
 import '../save_location.dart';
 import '../widgets/app_title.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.pickSaveLocation});
+  const HomeScreen({super.key, this.pickSaveLocation, this.copyImage});
 
   /// Injectable for tests; the real save dialog when null.
   final SaveLocationPicker? pickSaveLocation;
+
+  /// Injectable for tests; the real clipboard when null.
+  final PngClipboardCopier? copyImage;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -260,6 +264,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _copyQrImage() async {
+    final qrString = _qrString;
+    if (qrString.isEmpty) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final copy = widget.copyImage ?? copyPngToClipboard;
+
+    try {
+      await copy(await renderQrPng(qrString));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('QR code copied as an image')),
+      );
+    } on ImageClipboardException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not copy: $error')));
+    }
+  }
+
   Widget _buildQrPanel({required double qrSize, required bool expandPreview}) {
     final qrString = _qrString;
     final ready = _isReady && qrString.isNotEmpty;
@@ -304,10 +327,28 @@ class _HomeScreenState extends State<HomeScreen> {
             child: preview,
           ),
         const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: ready ? _saveQrPng : null,
-          icon: const Icon(Icons.download, size: 18),
-          label: const Text('Save PNG'),
+        // Expanded rather than intrinsic widths: two buttons side by side must
+        // still fit the 390px phone layout.
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: ready ? _saveQrPng : null,
+                icon: const Icon(Icons.download, size: 18),
+                label: const Text('Save PNG'),
+              ),
+            ),
+            if (imageClipboardSupported) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: ready ? _copyQrImage : null,
+                  icon: const Icon(Icons.image_outlined, size: 18),
+                  label: const Text('Copy image'),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 16),
         Text('QR Code Data', style: Theme.of(context).textTheme.labelMedium),
