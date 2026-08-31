@@ -9,7 +9,7 @@ import '../formats/vcard_format.dart';
 import '../formats/wifi_format.dart';
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
-import '../widgets/version_badge.dart';
+import '../widgets/app_title.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -86,16 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Qrious'),
-        centerTitle: false,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Center(child: VersionBadge()),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const AppTitle(), centerTitle: false),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

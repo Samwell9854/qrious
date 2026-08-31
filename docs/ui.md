@@ -35,7 +35,7 @@ Fields themselves are dispatched on `field.type` by `_buildField` via a `switch`
 
 ## The version badge
 
-The app bar carries a [VersionBadge](../lib/widgets/version_badge.dart) — a chip showing the running build's version, styled in three states so they cannot be confused: a prerelease is called out in the tertiary container colour, a stable release is quiet, and a version the parser cannot read is flagged as an error rather than passing for a shippable build. It reads asynchronously via `AppVersion.load()` and renders nothing while loading or on failure, so being unable to read the bundle never costs the user their app bar. See [versioning-and-releases.md](versioning-and-releases.md).
+The app bar's title is [AppTitle](../lib/widgets/app_title.dart): the app name with a [VersionBadge](../lib/widgets/version_badge.dart) beside it. The badge is there rather than in `actions` because Flutter paints the debug ribbon across the top right corner and it sits on top of anything parked there; it is `Flexible` and ellipsises so a long version cannot overflow the title row on a phone. The badge is a chip showing the running build's version, styled in three states so they cannot be confused: a prerelease is called out in the tertiary container colour, a stable release is quiet, and a version the parser cannot read is flagged as an error rather than passing for a shippable build. It reads asynchronously via `AppVersion.load()` and renders nothing while loading or on failure, so being unable to read the bundle never costs the user their app bar. See [versioning-and-releases.md](versioning-and-releases.md).
 
 ## Theming
 

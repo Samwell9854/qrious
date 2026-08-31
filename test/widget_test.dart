@@ -4,6 +4,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:qrious/main.dart';
 import 'package:qrious/models/qr_format.dart';
+import 'package:qrious/widgets/app_title.dart';
+import 'package:qrious/widgets/version_badge.dart';
 
 void main() {
   testWidgets('starts on the WiFi format with no QR code yet', (
@@ -15,6 +17,24 @@ void main() {
     expect(find.byType(QrImageView), findsNothing);
     expect(
       find.text('Fill in the required fields\nto generate a QR code'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keeps the version badge out of the debug ribbon corner', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const QriousApp());
+
+    // Flutter paints the debug ribbon across the top right corner, so the badge
+    // belongs in the app bar's title, not in its actions.
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(appBar.actions ?? const <Widget>[], isEmpty);
+    expect(
+      find.descendant(
+        of: find.byType(AppTitle),
+        matching: find.byType(VersionBadge),
+      ),
       findsOneWidget,
     );
   });

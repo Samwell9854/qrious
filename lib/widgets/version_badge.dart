@@ -4,6 +4,9 @@ import '../version.dart';
 
 /// Shows the running build's version beside the app title.
 ///
+/// It is placed there, and not in the app bar's actions, because Flutter paints
+/// the debug ribbon across the top right corner in a debug build.
+///
 /// Three states, deliberately styled apart: a prerelease is called out so an alpha
 /// on someone's device is obvious at a glance, a stable release is quiet, and a
 /// version the parser cannot read is flagged as an error rather than passing for
@@ -53,6 +56,8 @@ class VersionBadge extends StatelessWidget {
         ),
         child: Text(
           version.version,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: foreground,
             fontWeight: label != null ? FontWeight.w600 : FontWeight.w400,
