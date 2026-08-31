@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../formats/email_format.dart';
@@ -9,10 +11,15 @@ import '../formats/vcard_format.dart';
 import '../formats/wifi_format.dart';
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import '../qr_png.dart';
+import '../save_location.dart';
 import '../widgets/app_title.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.pickSaveLocation});
+
+  /// Injectable for tests; the real save dialog when null.
+  final SaveLocationPicker? pickSaveLocation;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -230,6 +237,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _saveQrPng() async {
+    final qrString = _qrString;
+    if (qrString.isEmpty) return;
+
+    // Captured before the first await: the messenger must not be looked up from
+    // a context that may be gone by the time the dialog closes.
+    final messenger = ScaffoldMessenger.of(context);
+    final pick = widget.pickSaveLocation ?? pickPngSaveLocation;
+
+    try {
+      var path = await pick(qrFileName(_selectedFormat.id, DateTime.now()));
+      if (path == null) return; // Cancelled, which is not a failure.
+
+      // The GTK dialog does not append the extension when the user removes it.
+      if (!path.toLowerCase().endsWith('.png')) path = '$path.png';
+
+      await File(path).writeAsBytes(await renderQrPng(qrString));
+      messenger.showSnackBar(SnackBar(content: Text('Saved $path')));
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
+    }
+  }
+
   Widget _buildQrPanel({required double qrSize, required bool expandPreview}) {
     final qrString = _qrString;
     final ready = _isReady && qrString.isNotEmpty;
@@ -273,6 +303,12 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: preview,
           ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: ready ? _saveQrPng : null,
+          icon: const Icon(Icons.download, size: 18),
+          label: const Text('Save PNG'),
+        ),
         const SizedBox(height: 16),
         Text('QR Code Data', style: Theme.of(context).textTheme.labelMedium),
         const SizedBox(height: 8),

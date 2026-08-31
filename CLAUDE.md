@@ -4,7 +4,7 @@ Flutter app that generates QR codes from structured input. Pick a format (WiFi, 
 
 - Flutter 3.41 stable / Dart SDK `^3.11.5`
 - The only platform scaffolded so far is **Linux** (`linux/`). iOS is the planned target but has no runner yet — see Known rough edges.
-- Dependencies: `qr_flutter` (rendering), `package_info_plus` (reads the running build's version), `pub_semver` (parsing).
+- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing).
 
 ## Commands
 
@@ -26,6 +26,8 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/formats/](lib/formats/) | One file per supported QR format |
 | [lib/screens/home_screen.dart](lib/screens/home_screen.dart) | The whole UI: format picker, generated form, QR preview |
 | [lib/widgets/version_badge.dart](lib/widgets/version_badge.dart) | The version chip in the app bar |
+| [lib/qr_png.dart](lib/qr_png.dart) | Renders the QR code to a PNG for saving — black on white, with a quiet zone |
+| [lib/save_location.dart](lib/save_location.dart) | The save dialog, behind a typedef the screen can stub in tests |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |
 | [tool/](tool/) | Release tooling — the version format rule, the tagging script, and the build-number bump |
 

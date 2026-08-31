@@ -33,6 +33,14 @@ Fields themselves are dispatched on `field.type` by `_buildField` via a `switch`
 
 `_buildQrPanel({required double qrSize, required bool expandPreview})` renders the `QrImageView` on a forced white rounded container (so it scans in dark mode) when `_isReady && qrString.isNotEmpty`, otherwise a placeholder prompt. Below it: a `SelectableText` of the raw payload in monospace, plus a copy-to-clipboard `IconButton` with a snackbar confirmation. `errorStateBuilder` handles payloads too large to encode (reachable with a long vCard or free text).
 
+## Saving the code
+
+The preview panel carries a **Save PNG** button, enabled on the same condition as the preview itself. It asks where to save through [pickPngSaveLocation](../lib/save_location.dart), renders the image with [renderQrPng](../lib/qr_png.dart) and writes it; cancelling is not a failure and says nothing, and a write that fails reports itself in a snackbar rather than throwing.
+
+The saved image is not the widget on screen. `QrPainter` paints modules and nothing else, so the preview relies on its white `Container` for a background and on the panel's padding for the quiet zone the spec requires — neither of which exists in a file. `renderQrPng` therefore paints black on an opaque white square with its own margin, whatever the theme is doing, because a transparent PNG dropped on a dark background is a code no scanner can read.
+
+`HomeScreen` takes a `pickSaveLocation` seam, defaulted to the real dialog. The dialog is the one part of saving that cannot run headless; rendering and writing are exercised for real in [test/save_qr_test.dart](../test/save_qr_test.dart), against a temp directory.
+
 ## The version badge
 
 The app bar's title is [AppTitle](../lib/widgets/app_title.dart): the app name with a [VersionBadge](../lib/widgets/version_badge.dart) beside it. The badge is there rather than in `actions` because Flutter paints the debug ribbon across the top right corner and it sits on top of anything parked there; it is `Flexible` and ellipsises so a long version cannot overflow the title row on a phone. The badge is a chip showing the running build's version, styled in three states so they cannot be confused: a prerelease is called out in the tertiary container colour, a stable release is quiet, and a version the parser cannot read is flagged as an error rather than passing for a shippable build. It reads asynchronously via `AppVersion.load()` and renders nothing while loading or on failure, so being unable to read the bundle never costs the user their app bar. See [versioning-and-releases.md](versioning-and-releases.md).
