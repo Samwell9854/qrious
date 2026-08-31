@@ -73,12 +73,25 @@ void main() {
   });
 
   group('copyPngToClipboard', () {
-    // Only meaningful with a real display and a real helper, so it is skipped
-    // wherever there is not one rather than failing the suite in CI.
-    final helper = chooseClipboardHelper(
-      Platform.environment,
-      (executable) => Process.runSync('which', [executable]).exitCode == 0,
-    );
+    bool onPath(String executable) =>
+        Process.runSync('which', [executable]).exitCode == 0;
+
+    final helper = chooseClipboardHelper(Platform.environment, onPath);
+
+    /// How to read a PNG back out, paired with the helper that put it there.
+    /// Skipped rather than failed where there is no clipboard at all — CI, or an
+    /// ssh session — since that says nothing about the code.
+    final reader = switch (helper?.executable) {
+      'wl-copy' when onPath('wl-paste') => (
+        executable: 'wl-paste',
+        arguments: ['--type', 'image/png'],
+      ),
+      'xclip' => (
+        executable: 'xclip',
+        arguments: ['-selection', 'clipboard', '-t', 'image/png', '-o'],
+      ),
+      _ => null,
+    };
 
     testWidgets(
       'round-trips a PNG through the system clipboard',
@@ -87,19 +100,17 @@ void main() {
           final bytes = await renderQrPng('https://example.com', size: 128);
           await copyPngToClipboard(bytes);
 
-          // Read it back out with the same helper family.
-          final read = Process.runSync('xclip', [
-            '-selection',
-            'clipboard',
-            '-t',
-            'image/png',
-            '-o',
-          ], stdoutEncoding: null);
+          final read = Process.runSync(
+            reader!.executable,
+            reader.arguments,
+            stdoutEncoding: null,
+          );
           expect(read.exitCode, 0);
-          expect((read.stdout as List<int>).length, bytes.length);
+          expect(read.stdout as List<int>, bytes);
         });
       },
-      skip: helper?.executable != 'xclip',
+      // Skipped where the session has no clipboard helper at all.
+      skip: reader == null,
     );
   });
 }
