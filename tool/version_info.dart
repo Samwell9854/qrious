@@ -127,3 +127,34 @@ void writePubspecVersion(File pubspec, String version) {
     contents.replaceFirst(pattern, 'version: $version'),
   );
 }
+
+/// [name] reconciled with the calendar on [now], or null when it already agrees
+/// or when the answer is a decision rather than an increment.
+///
+/// The numeric version names the release being worked toward, so work started in
+/// August but committed in September is `2026.9.0-alpha.1`, not `2026.8.0`. The
+/// prerelease counter is scoped to the numeric version, so it restarts at 1; the
+/// label itself is kept, since alpha-versus-preview is a judgement this does not
+/// get to make.
+///
+/// Returns null for a stable version. A stable release that has fallen behind the
+/// calendar is followed by a decision about what ships next — see
+/// docs/versioning-and-releases.md — and guessing at it here would invent a
+/// release nobody planned. Also returns null for a version dated in the future,
+/// which is a mistake to report rather than quietly walk backwards.
+String? reconcileWithCalendar(String name, DateTime now) {
+  final match = RegExp(
+    r'^(\d{4})\.(\d{1,2})\.(\d+)(?:-([a-z]+)\.(\d+))?$',
+  ).firstMatch(name);
+  if (match == null) return null;
+
+  final label = match.group(4);
+  if (label == null) return null;
+
+  final year = int.parse(match.group(1)!);
+  final month = int.parse(match.group(2)!);
+  if (year == now.year && month == now.month) return null;
+  if (year > now.year || (year == now.year && month > now.month)) return null;
+
+  return '${now.year}.${now.month}.0-$label.1';
+}

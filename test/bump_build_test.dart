@@ -78,6 +78,82 @@ void main() {
     });
   });
 
+  group('reconcileWithCalendar', () {
+    test('leaves a version already dated this month alone', () {
+      expect(
+        reconcileWithCalendar('2026.8.0-alpha.1', DateTime(2026, 8, 30)),
+        isNull,
+      );
+    });
+
+    test(
+      'moves a version left over from last month, resetting the counter',
+      () {
+        // The counter is scoped to the numeric version, so it restarts at 1
+        // rather than continuing from alpha.4.
+        expect(
+          reconcileWithCalendar('2026.8.0-alpha.4', DateTime(2026, 9, 1)),
+          '2026.9.0-alpha.1',
+        );
+      },
+    );
+
+    test('crosses a year boundary', () {
+      expect(
+        reconcileWithCalendar('2026.12.0-alpha.2', DateTime(2027, 1, 4)),
+        '2027.1.0-alpha.1',
+      );
+    });
+
+    test('resets micro, because an alpha works toward the next release', () {
+      expect(
+        reconcileWithCalendar('2026.8.3-alpha.2', DateTime(2026, 9, 1)),
+        '2026.9.0-alpha.1',
+      );
+    });
+
+    test('keeps the prerelease label rather than choosing one', () {
+      expect(
+        reconcileWithCalendar('2026.8.0-preview.3', DateTime(2026, 9, 1)),
+        '2026.9.0-preview.1',
+      );
+    });
+
+    test('leaves a stable version alone, however stale', () {
+      // What follows a shipped release is a decision, not an increment.
+      expect(reconcileWithCalendar('2026.8.1', DateTime(2027, 3, 1)), isNull);
+    });
+
+    test('does not walk a future-dated version backwards', () {
+      expect(
+        reconcileWithCalendar('2026.11.0-alpha.1', DateTime(2026, 8, 30)),
+        isNull,
+      );
+    });
+
+    test('produces a version the release tooling accepts', () {
+      final next = reconcileWithCalendar(
+        '2026.8.0-alpha.4',
+        DateTime(2026, 9, 1),
+      );
+      expect(isCalendarVersion(next), isTrue);
+    });
+
+    test('does not zero-pad the month', () {
+      expect(
+        reconcileWithCalendar('2025.12.0-alpha.1', DateTime(2026, 9, 1)),
+        '2026.9.0-alpha.1',
+      );
+    });
+
+    test('returns null for a version it cannot parse', () {
+      expect(
+        reconcileWithCalendar('not-a-version', DateTime(2026, 9, 1)),
+        isNull,
+      );
+    });
+  });
+
   group('writePubspecVersion', () {
     late Directory temp;
 

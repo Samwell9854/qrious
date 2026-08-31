@@ -1,14 +1,16 @@
 //
 // bump_build.dart
 //
-// Advances the +build number in pubspec.yaml when a commit changes app code.
+// Advances the version in pubspec.yaml when a commit changes app code.
 //
-// Run from the pre-commit hook in tool/hooks/. The build number is the one part
-// of the version with no editorial judgement in it: it is a plain counter that
-// must increase on every build submitted to a store, so a machine can own it.
-// The version *name* is not automated — yyyy.m.micro and -alpha.N say which
-// release is being worked toward, which is a decision a person makes at release
-// time. See docs/versioning-and-releases.md.
+// Run from the pre-commit hook in tool/hooks/. It owns the two parts of the
+// version with no editorial judgement in them: the +build counter, which must
+// increase on every build submitted to a store, and the calendar rollover, which
+// docs/versioning-and-releases.md states as a rule — work started in August but
+// committed in September is 2026.9.0-alpha.1.
+//
+// What it does not own: what micro should be, when -alpha is dropped, and when a
+// commit deserves a tag. Those are decisions a person makes at release time.
 //
 // Usage:
 //   dart run tool/bump_build.dart              bump if staged changes touch app code
@@ -37,13 +39,21 @@ void main(List<String> args) {
   }
 
   final current = readPubspecVersion(pubspec);
-  final String next;
+  String next;
   try {
     next = bumpBuild(current);
   } on StateError catch (error) {
     stderr.writeln(error.message);
     exit(1);
   }
+
+  // The calendar rollover is a stated rule, not a judgement, so it is applied
+  // here too: a version left over from last month names a release that is no
+  // longer the one being worked toward. What micro should be, and when -alpha
+  // gets dropped, stay with the person releasing.
+  final (name: name, build: build) = splitVersion(next);
+  final reconciled = reconcileWithCalendar(name, DateTime.now());
+  if (reconciled != null) next = '$reconciled+$build';
 
   final because = force
       ? '--force'
@@ -66,7 +76,15 @@ void main(List<String> args) {
     exit(1);
   }
 
-  stdout.writeln('Build number $current -> $next ($because)');
+  if (reconciled != null) {
+    stdout.writeln('Version $current -> $next ($because)');
+    stdout.writeln(
+      'The calendar moved on, so the version name was reset with it. Check that '
+      '$reconciled is the release you mean to be working toward.',
+    );
+  } else {
+    stdout.writeln('Build number $current -> $next ($because)');
+  }
 }
 
 /// Paths staged for the commit being written, ignoring deletions — a deleted

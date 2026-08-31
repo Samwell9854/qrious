@@ -14,7 +14,7 @@ flutter analyze                           # lints (flutter_lints 6); must be cle
 flutter test                              # format, widget, layout and version tests
 dart format lib test tool                 # before committing
 dart run tool/new_release.dart --dry-run  # release checks without tagging
-git config core.hooksPath tool/hooks       # once per clone: auto-bump +build
+git config core.hooksPath tool/hooks       # once per clone: auto-bump the version
 ```
 
 ## Layout
@@ -45,7 +45,7 @@ Adopt the **format only**. Conventional Commits normally drives semver bumps fro
 
 ## Versioning and releases
 
-Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` number (bumped automatically by a pre-commit hook when app code changes), and the release procedure: [docs/versioning-and-releases.md](docs/versioning-and-releases.md). `version:` in [pubspec.yaml](pubspec.yaml) is the single source of truth; tags are derived from it by `dart run tool/new_release.dart`, never typed by hand. Reading and parsing live in `lib/`, validating in `tool/` — the app must still open on a malformed version, and the tooling must refuse to tag one.
+Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` number (it and the calendar rollover are applied automatically by a pre-commit hook when app code changes; `micro`, dropping `-alpha` and tagging stay manual), and the release procedure: [docs/versioning-and-releases.md](docs/versioning-and-releases.md). `version:` in [pubspec.yaml](pubspec.yaml) is the single source of truth; tags are derived from it by `dart run tool/new_release.dart`, never typed by hand. Reading and parsing live in `lib/`, validating in `tool/` — the app must still open on a malformed version, and the tooling must refuse to tag one.
 
 ## Conventions
 

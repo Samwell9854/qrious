@@ -14,7 +14,7 @@ Tag whenever the answer to *"if a device had this build on it, would I need to t
 
 ## The build number
 
-Unlike ncpa-helper, the version string carries a `+N` build number: `2026.8.0-alpha.1+1`. Both the App Store and Play require one, and require it to **increase on every submitted build**, independent of the version name. So it is a plain counter that never resets — not `micro`, not `alpha.N`. It is also the one part of the version with no editorial judgement in it, which is why it is the one part that is automated: [tool/bump_build.dart](../tool/bump_build.dart) advances it from a pre-commit hook whenever a commit touches app code.
+Unlike ncpa-helper, the version string carries a `+N` build number: `2026.8.0-alpha.1+1`. Both the App Store and Play require one, and require it to **increase on every submitted build**, independent of the version name. So it is a plain counter that never resets — not `micro`, not `alpha.N`. It has no editorial judgement in it, which is why [tool/bump_build.dart](../tool/bump_build.dart) advances it from a pre-commit hook whenever a commit touches app code.
 
 **iOS rejects a prerelease label in `CFBundleShortVersionString`.** Flutter passes the part before `+` straight through, so `2026.8.0-alpha.1` fails at upload. An iOS build needs the numeric version only: `flutter build ipa --build-name=2026.8.0 --build-number=1`. `tool/new_release.dart` prints that exact command for the tag it creates, so it does not have to be remembered.
 
@@ -28,11 +28,13 @@ git config core.hooksPath tool/hooks
 
 From then on, any commit that stages a change under `lib/`, `assets/` or a platform directory (`linux/`, `ios/`, …) advances `+build` and stages `pubspec.yaml` along with it. A commit that only touches `docs/`, `test/`, `tool/` or `CLAUDE.md` leaves it alone: the build on a device is not a different build because a doc changed. `git commit --no-verify` skips the hook, and `dart run tool/bump_build.dart --dry-run` says what it would do without doing it.
 
-**Only the build number is automated. The version name is not, and should not be.** `yyyy.m.micro` and `-alpha.N` say which release is being worked toward — the judgement described above, made once at release time by a person who knows whether a build needs telling apart from the last one. A counter that advanced on every commit would answer that question with "always", which is the same as not answering it.
+The same commit also reconciles the calendar. A version left over from last month names a release that is no longer the one being worked toward, so an app-code commit in September against `2026.8.0-alpha.4` rewrites it to `2026.9.0-alpha.1` — micro back to `0`, the counter restarted because it is scoped to the numeric version, the label kept. A stable version is left alone however stale it is: what follows a shipped release is a decision, not an increment.
+
+**What is automated is what has no judgement in it.** The build number is a counter the stores require to increase; the calendar rollover is a rule stated above, not a choice. What `micro` should be, when `-alpha` is dropped, and whether a commit deserves a tag are decisions made at release time by a person who knows whether a build needs telling apart from the last one. A counter that advanced those on every commit would answer that question with "always", which is the same as not answering it.
 
 `pubspec.yaml` is deliberately not in the trigger list: the version lives there, so counting it as app code would make each bump trigger the next one. A change that is *only* a dependency edit therefore needs `dart run tool/bump_build.dart --force` — in practice a dependency changes because something in `lib/` is about to use it, and that commit triggers the bump on its own.
 
-Because the commit that opens the next version after a tag touches nothing but `pubspec.yaml`, it does not bump; the next app-code commit does. So `new_release.dart` prints the next version name with the build number unchanged.
+Because the commit that opens the next version after a tag touches nothing but `pubspec.yaml`, it neither bumps nor reconciles; the next app-code commit does. So `new_release.dart` prints the next version name with the build number unchanged.
 
 ## The source of truth
 
