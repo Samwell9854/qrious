@@ -12,21 +12,21 @@ void main() {
     test('an address alone produces a bare mailto:', () {
       expect(
         format.buildQrString({'to': 'ada@example.com'}),
-        'mailto:ada%40example.com',
+        'mailto:ada@example.com',
       );
     });
 
     test('a subject becomes the only query parameter', () {
       expect(
         format.buildQrString({'to': 'ada@example.com', 'subject': 'Hello'}),
-        'mailto:ada%40example.com?subject=Hello',
+        'mailto:ada@example.com?subject=Hello',
       );
     });
 
     test('a body becomes the only query parameter', () {
       expect(
         format.buildQrString({'to': 'ada@example.com', 'body': 'Hi'}),
-        'mailto:ada%40example.com?body=Hi',
+        'mailto:ada@example.com?body=Hi',
       );
     });
 
@@ -37,7 +37,7 @@ void main() {
           'subject': 'Hello',
           'body': 'Hi',
         }),
-        'mailto:ada%40example.com?subject=Hello&body=Hi',
+        'mailto:ada@example.com?subject=Hello&body=Hi',
       );
     });
 
@@ -48,9 +48,35 @@ void main() {
           'subject': '',
           'body': '',
         }),
-        'mailto:ada%40example.com',
+        'mailto:ada@example.com',
       );
     });
+
+    test('leaves @ and + literal in the address', () {
+      // RFC 6068 allows both in the addr-spec, and %2B breaks plus-addressing
+      // in enough clients to matter.
+      expect(
+        format.buildQrString({'to': 'ada+qr@example.com'}),
+        'mailto:ada+qr@example.com',
+      );
+    });
+
+    test('still encodes what is not allowed in an address', () {
+      expect(
+        format.buildQrString({'to': 'a b@example.com'}),
+        'mailto:a%20b@example.com',
+      );
+    });
+
+    test(
+      'a + in the subject stays encoded, where it could read as a space',
+      () {
+        expect(
+          format.buildQrString({'to': 'ada@example.com', 'subject': 'a+b'}),
+          'mailto:ada@example.com?subject=a%2Bb',
+        );
+      },
+    );
 
     group('URI encoding', () {
       test('encodes spaces and punctuation in the subject', () {

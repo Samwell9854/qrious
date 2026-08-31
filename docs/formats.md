@@ -49,13 +49,13 @@ Every value is a `String`, regardless of field type:
 | `wifi` | [WifiFormat](../lib/formats/wifi_format.dart) | `WIFI:T:<WPA\|WEP\|nopass>;S:<ssid>;P:<pass>;H:<bool>;;` |
 | `vcard` | [VCardFormat](../lib/formats/vcard_format.dart) | vCard 3.0, newline-joined, optional lines omitted when empty |
 | `url` | [UrlFormat](../lib/formats/url_format.dart) | the raw URL |
-| `email` | [EmailFormat](../lib/formats/email_format.dart) | `mailto:` with URI-encoded `subject`/`body` |
+| `email` | [EmailFormat](../lib/formats/email_format.dart) | `mailto:` with URI-encoded `subject`/`body`, `@` and `+` left literal in the address |
 | `phone` | [PhoneFormat](../lib/formats/phone_format.dart) | `tel:<number>` |
 | `text` | [TextFormat](../lib/formats/text_format.dart) | the text verbatim |
 
 Escaping rules differ per spec and belong inside the format class:
 - WiFi escapes `\ ; , " :` with a backslash (`WifiFormat._escape`).
-- Email uses `Uri.encodeComponent` on the address and each query param.
+- Email uses `Uri.encodeComponent` on the address and each query param, then restores `@` and `+` in the address — RFC 6068 allows both there, and `%2B` breaks plus-addressing in some clients. The query params keep the full encoding, where `+` can be read as a space.
 - vCard emits `N:` and `FN:` lines; the rest are conditional. Every value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a multiline address from ending its own property.
 
 ## Adding a format
