@@ -108,10 +108,13 @@ void _printFollowUp(String root, String tag, String name, String build) {
   // docs/versioning-and-releases.md. Printed rather than done here: this script
   // validates and tags, and writing to the repo would make it the only tool in
   // tool/ that does.
+  // The build number is left as it is: tool/bump_build.dart advances it from the
+  // pre-commit hook on the next commit that touches app code, and this one only
+  // edits pubspec.yaml.
   final next = nextPreRelease(name) ?? '<next version>';
   stdout.writeln(
-    'Then open the next version: set version: to $next+${int.parse(build) + 1} '
-    'in pubspec.yaml and commit.',
+    'Then open the next version: set version: to $next+$build in pubspec.yaml '
+    'and commit.',
   );
 
   // iOS rejects a prerelease label in CFBundleShortVersionString.

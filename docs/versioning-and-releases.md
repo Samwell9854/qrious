@@ -14,9 +14,25 @@ Tag whenever the answer to *"if a device had this build on it, would I need to t
 
 ## The build number
 
-Unlike ncpa-helper, the version string carries a `+N` build number: `2026.8.0-alpha.1+1`. Both the App Store and Play require one, and require it to **increase on every submitted build**, independent of the version name. So it is a plain counter that never resets — not `micro`, not `alpha.N` — and it advances alongside every version bump.
+Unlike ncpa-helper, the version string carries a `+N` build number: `2026.8.0-alpha.1+1`. Both the App Store and Play require one, and require it to **increase on every submitted build**, independent of the version name. So it is a plain counter that never resets — not `micro`, not `alpha.N`. It is also the one part of the version with no editorial judgement in it, which is why it is the one part that is automated: [tool/bump_build.dart](../tool/bump_build.dart) advances it from a pre-commit hook whenever a commit touches app code.
 
 **iOS rejects a prerelease label in `CFBundleShortVersionString`.** Flutter passes the part before `+` straight through, so `2026.8.0-alpha.1` fails at upload. An iOS build needs the numeric version only: `flutter build ipa --build-name=2026.8.0 --build-number=1`. `tool/new_release.dart` prints that exact command for the tag it creates, so it does not have to be remembered.
+
+### Bumping it automatically
+
+Enable the hook once per clone — git does not version `.git/hooks`, so this is the one setup step:
+
+```bash
+git config core.hooksPath tool/hooks
+```
+
+From then on, any commit that stages a change under `lib/`, `assets/` or a platform directory (`linux/`, `ios/`, …) advances `+build` and stages `pubspec.yaml` along with it. A commit that only touches `docs/`, `test/`, `tool/` or `CLAUDE.md` leaves it alone: the build on a device is not a different build because a doc changed. `git commit --no-verify` skips the hook, and `dart run tool/bump_build.dart --dry-run` says what it would do without doing it.
+
+**Only the build number is automated. The version name is not, and should not be.** `yyyy.m.micro` and `-alpha.N` say which release is being worked toward — the judgement described above, made once at release time by a person who knows whether a build needs telling apart from the last one. A counter that advanced on every commit would answer that question with "always", which is the same as not answering it.
+
+`pubspec.yaml` is deliberately not in the trigger list: the version lives there, so counting it as app code would make each bump trigger the next one. A change that is *only* a dependency edit therefore needs `dart run tool/bump_build.dart --force` — in practice a dependency changes because something in `lib/` is about to use it, and that commit triggers the bump on its own.
+
+Because the commit that opens the next version after a tag touches nothing but `pubspec.yaml`, it does not bump; the next app-code commit does. So `new_release.dart` prints the next version name with the build number unchanged.
 
 ## The source of truth
 
@@ -42,6 +58,8 @@ dart run tool/new_release.dart                # creates the annotated tag
 git push origin v2026.8.0-alpha.1             # the script prints this line
 # 2. Set version: to the next counter (the script prints that too) and commit.
 ```
+
+Step 2 changes the version name only — the build number is already where the hook left it.
 
 The script refuses a malformed version, a version with no build number, a dirty tree (`--allow-dirty` overrides), a tag that already exists, and a repository with no commits. It **never pushes and never writes to the repo** — it validates and tags; opening the next version is a commit you make, which keeps the one tool that touches git history from also editing files.
 

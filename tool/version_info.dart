@@ -70,3 +70,60 @@ String? nextPreRelease(String name) {
   if (match == null || !name.contains('-')) return null;
   return '${match.group(1)}${int.parse(match.group(2)!) + 1}';
 }
+
+/// Path prefixes whose contents end up in the shipped app, and so change what a
+/// build *does*. Everything else — docs/, test/, tool/, CLAUDE.md — can change
+/// freely without the build on a device becoming a different build.
+///
+/// pubspec.yaml is deliberately absent. It is where the version itself lives, so
+/// treating it as app code would make every bump trigger another one. A change
+/// that is only a dependency edit therefore needs `--force`; in practice a
+/// dependency changes because something in lib/ is about to use it, and that
+/// commit triggers the bump on its own.
+const appPathPrefixes = [
+  'lib/',
+  'assets/',
+  'android/',
+  'ios/',
+  'linux/',
+  'macos/',
+  'web/',
+  'windows/',
+];
+
+/// Whether any of [paths] is app code — see [appPathPrefixes].
+bool affectsApp(Iterable<String> paths) =>
+    paths.any((path) => appPathPrefixes.any(path.startsWith));
+
+/// [version] with its build number incremented: `2026.8.0-alpha.1+1` becomes
+/// `2026.8.0-alpha.1+2`.
+///
+/// Throws when there is no build number to advance. The stores require one and
+/// require it to increase, so silently carrying on without it would produce
+/// exactly the build that gets rejected at upload.
+String bumpBuild(String version) {
+  final (name: name, build: build) = splitVersion(version);
+  final current = int.tryParse(build);
+  if (current == null) {
+    throw StateError(
+      "Version '$version' has no numeric +build number to increment.",
+    );
+  }
+  return '$name+${current + 1}';
+}
+
+/// Replaces the `version:` line in [pubspec] with [version].
+void writePubspecVersion(File pubspec, String version) {
+  final contents = pubspec.readAsStringSync();
+  // [^\S\n] is horizontal whitespace only: \s* would run past the end of the
+  // line and the replacement would swallow the blank line after it.
+  final pattern = RegExp(r'^version:[^\S\n]*\S+[^\S\n]*$', multiLine: true);
+  if (pattern.allMatches(contents).length != 1) {
+    throw StateError(
+      'Expected exactly one top-level version: line in ${pubspec.path}.',
+    );
+  }
+  pubspec.writeAsStringSync(
+    contents.replaceFirst(pattern, 'version: $version'),
+  );
+}

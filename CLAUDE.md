@@ -14,6 +14,7 @@ flutter analyze                           # lints (flutter_lints 6); must be cle
 flutter test                              # format, widget, layout and version tests
 dart format lib test tool                 # before committing
 dart run tool/new_release.dart --dry-run  # release checks without tagging
+git config core.hooksPath tool/hooks       # once per clone: auto-bump +build
 ```
 
 ## Layout
@@ -26,7 +27,7 @@ dart run tool/new_release.dart --dry-run  # release checks without tagging
 | [lib/screens/home_screen.dart](lib/screens/home_screen.dart) | The whole UI: format picker, generated form, QR preview |
 | [lib/widgets/version_badge.dart](lib/widgets/version_badge.dart) | The version chip in the app bar |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |
-| [tool/](tool/) | Release tooling — the version format rule, and the tagging script |
+| [tool/](tool/) | Release tooling — the version format rule, the tagging script, and the build-number bump |
 
 ## Core idea
 
@@ -44,7 +45,7 @@ Adopt the **format only**. Conventional Commits normally drives semver bumps fro
 
 ## Versioning and releases
 
-Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` number, and the release procedure: [docs/versioning-and-releases.md](docs/versioning-and-releases.md). `version:` in [pubspec.yaml](pubspec.yaml) is the single source of truth; tags are derived from it by `dart run tool/new_release.dart`, never typed by hand. Reading and parsing live in `lib/`, validating in `tool/` — the app must still open on a malformed version, and the tooling must refuse to tag one.
+Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` number (bumped automatically by a pre-commit hook when app code changes), and the release procedure: [docs/versioning-and-releases.md](docs/versioning-and-releases.md). `version:` in [pubspec.yaml](pubspec.yaml) is the single source of truth; tags are derived from it by `dart run tool/new_release.dart`, never typed by hand. Reading and parsing live in `lib/`, validating in `tool/` — the app must still open on a malformed version, and the tooling must refuse to tag one.
 
 ## Conventions
 

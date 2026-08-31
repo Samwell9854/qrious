@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Advances the +build number when the commit changes app code.
+#
+# Enable it once per clone — hooks are not themselves versioned by git:
+#   git config core.hooksPath tool/hooks
+#
+# Skip it for a single commit with `git commit --no-verify`.
+#
+exec dart run tool/bump_build.dart
