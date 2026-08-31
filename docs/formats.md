@@ -56,7 +56,7 @@ Every value is a `String`, regardless of field type:
 Escaping rules differ per spec and belong inside the format class:
 - WiFi escapes `\ ; , " :` with a backslash (`WifiFormat._escape`).
 - Email uses `Uri.encodeComponent` on the address and each query param.
-- vCard emits `N:` and `FN:` lines; the rest are conditional.
+- vCard emits `N:` and `FN:` lines; the rest are conditional. Every value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a multiline address from ending its own property.
 
 ## Adding a format
 

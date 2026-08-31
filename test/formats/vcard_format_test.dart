@@ -100,6 +100,51 @@ END:VCARD''');
       });
     });
 
+    group('escaping', () {
+      test('a semicolon in a name does not split the N: components', () {
+        final lines = format
+            .buildQrString({'first_name': 'Ada', 'last_name': 'Lovelace; Jr'})
+            .split('\n');
+        expect(lines, contains(r'N:Lovelace\; Jr;Ada;;;'));
+        expect(lines, contains(r'FN:Ada Lovelace\; Jr'));
+      });
+
+      test('a newline in the address stays inside the ADR: property', () {
+        final payload = format.buildQrString({
+          'address': '12 Baker St\nLondon',
+        });
+        expect(payload, contains(r'ADR:;;12 Baker St\nLondon;;;;'));
+        // BEGIN, VERSION, N, FN, ADR, END — a raw newline would add a seventh.
+        expect(payload.split('\n'), hasLength(6));
+      });
+
+      test('a carriage return or CRLF also becomes a literal \\n', () {
+        expect(
+          format.buildQrString({'address': 'a\r\nb\rc'}),
+          contains(r'ADR:;;a\nb\nc;;;;'),
+        );
+      });
+
+      test('escapes backslash, semicolon and comma in a text value', () {
+        expect(
+          format.buildQrString({'org': r'A\B;C,D'}),
+          contains(r'ORG:A\\B\;C\,D'),
+        );
+      });
+
+      test('escapes the backslash before it can escape its own escapes', () {
+        // Naive ordering would turn "\" into "\\" and then "\\\\".
+        expect(format.buildQrString({'org': r'\'}), contains(r'ORG:\\'));
+      });
+
+      test('leaves ordinary punctuation alone', () {
+        expect(
+          format.buildQrString({'org': "O'Neil & Sons (Ltd.)"}),
+          contains("ORG:O'Neil & Sons (Ltd.)"),
+        );
+      });
+    });
+
     test('always opens with BEGIN and closes with END', () {
       final lines = format.buildQrString({'first_name': 'Ada'}).split('\n');
       expect(lines.first, 'BEGIN:VCARD');

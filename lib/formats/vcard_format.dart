@@ -24,31 +24,50 @@ class VCardFormat extends QrFormat {
   String buildQrString(Map<String, String> values) {
     final firstName = values['first_name'] ?? '';
     final lastName = values['last_name'] ?? '';
+    final fullName = [firstName, lastName].where((s) => s.isNotEmpty).join(' ');
     final lines = [
       'BEGIN:VCARD',
       'VERSION:3.0',
-      'N:$lastName;$firstName;;;',
-      'FN:${[firstName, lastName].where((s) => s.isNotEmpty).join(' ')}',
+      // The semicolons between the five components of N: are structure, so the
+      // components are escaped individually and then joined.
+      'N:${_escape(lastName)};${_escape(firstName)};;;',
+      'FN:${_escape(fullName)}',
     ];
-    if ((values['org'] ?? '').isNotEmpty) {
-      lines.add('ORG:${values['org']}');
+
+    for (final (tag, id) in const [
+      ('ORG', 'org'),
+      ('TITLE', 'title'),
+      ('TEL', 'phone'),
+      ('EMAIL', 'email'),
+      ('URL', 'url'),
+    ]) {
+      final value = values[id] ?? '';
+      if (value.isNotEmpty) lines.add('$tag:${_escape(value)}');
     }
-    if ((values['title'] ?? '').isNotEmpty) {
-      lines.add('TITLE:${values['title']}');
-    }
-    if ((values['phone'] ?? '').isNotEmpty) {
-      lines.add('TEL:${values['phone']}');
-    }
-    if ((values['email'] ?? '').isNotEmpty) {
-      lines.add('EMAIL:${values['email']}');
-    }
-    if ((values['url'] ?? '').isNotEmpty) {
-      lines.add('URL:${values['url']}');
-    }
-    if ((values['address'] ?? '').isNotEmpty) {
-      lines.add('ADR:;;${values['address']};;;;');
-    }
+
+    // ADR: has seven components; the address goes in the third, the street.
+    final address = values['address'] ?? '';
+    if (address.isNotEmpty) lines.add('ADR:;;${_escape(address)};;;;');
+
     lines.add('END:VCARD');
     return lines.join('\n');
   }
+
+  /// Escapes a vCard text value per RFC 2426 section 5: backslash, semicolon and
+  /// comma are backslash-escaped, and a line break becomes a literal `\n`.
+  ///
+  /// The line break matters most here. `address` is a multiline field, so a user
+  /// pressing Enter would otherwise put a raw newline inside the value, and a
+  /// newline is what ends a vCard property — the rest of the address would parse
+  /// as a malformed property of its own and the card would be rejected.
+  ///
+  /// Backslash is replaced first, otherwise it would escape the backslashes the
+  /// later replacements introduce.
+  String _escape(String s) => s
+      .replaceAll('\\', r'\\')
+      .replaceAll(';', r'\;')
+      .replaceAll(',', r'\,')
+      .replaceAll('\r\n', r'\n')
+      .replaceAll('\n', r'\n')
+      .replaceAll('\r', r'\n');
 }
