@@ -1,5 +1,6 @@
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import 'validators.dart';
 
 class WifiFormat extends QrFormat {
   @override
@@ -15,6 +16,7 @@ class WifiFormat extends QrFormat {
       label: 'Network Name (SSID)',
       required: true,
       hint: 'MyNetwork',
+      validate: validateSsid,
     ),
     QrField(
       id: 'security',

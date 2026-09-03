@@ -23,7 +23,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | --- | --- |
 | [lib/main.dart](lib/main.dart) | `QriousApp` — MaterialApp, Material 3, indigo seed, light + dark themes |
 | [lib/models/](lib/models/) | `QrFormat` interface and `QrField` descriptor |
-| [lib/formats/](lib/formats/) | One file per supported QR format |
+| [lib/formats/](lib/formats/) | One file per supported QR format, plus `registry.dart` (the list the UI reads) and `validators.dart` (rules shared across formats) |
 | [lib/screens/home_screen.dart](lib/screens/home_screen.dart) | The whole UI: format picker, generated form, QR preview |
 | [lib/widgets/version_badge.dart](lib/widgets/version_badge.dart) | The version chip in the app bar |
 | [lib/qr_png.dart](lib/qr_png.dart) | Renders the QR code to a PNG for saving — black on white, with a quiet zone |

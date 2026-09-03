@@ -1,5 +1,6 @@
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import 'validators.dart';
 
 class EmailFormat extends QrFormat {
   @override
@@ -15,6 +16,7 @@ class EmailFormat extends QrFormat {
       label: 'To',
       required: true,
       hint: 'recipient@example.com',
+      validate: validateEmail,
     ),
     QrField(id: 'subject', label: 'Subject'),
     QrField(id: 'body', label: 'Body', type: QrFieldType.multiline),

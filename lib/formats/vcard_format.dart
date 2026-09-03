@@ -1,5 +1,6 @@
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import 'validators.dart';
 
 class VCardFormat extends QrFormat {
   @override
@@ -14,9 +15,14 @@ class VCardFormat extends QrFormat {
     QrField(id: 'last_name', label: 'Last Name'),
     QrField(id: 'org', label: 'Organization'),
     QrField(id: 'title', label: 'Job Title'),
-    QrField(id: 'phone', label: 'Phone Number', hint: '+1 555 000 0000'),
-    QrField(id: 'email', label: 'Email Address'),
-    QrField(id: 'url', label: 'Website'),
+    QrField(
+      id: 'phone',
+      label: 'Phone Number',
+      hint: '+1 555 000 0000',
+      validate: validatePhone,
+    ),
+    QrField(id: 'email', label: 'Email Address', validate: validateEmail),
+    QrField(id: 'url', label: 'Website', validate: validateUrl),
     QrField(id: 'address', label: 'Address', type: QrFieldType.multiline),
   ];
 

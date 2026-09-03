@@ -1,23 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qrious/formats/email_format.dart';
-import 'package:qrious/formats/phone_format.dart';
-import 'package:qrious/formats/text_format.dart';
-import 'package:qrious/formats/url_format.dart';
-import 'package:qrious/formats/vcard_format.dart';
-import 'package:qrious/formats/wifi_format.dart';
+import 'package:qrious/formats/registry.dart';
 import 'package:qrious/models/qr_field.dart';
-import 'package:qrious/models/qr_format.dart';
 
-/// Mirrors `_formats` in home_screen.dart. Kept in sync by hand — a format
-/// registered there but missing here simply goes unchecked by these tests.
-final formats = <QrFormat>[
-  WifiFormat(),
-  VCardFormat(),
-  UrlFormat(),
-  EmailFormat(),
-  PhoneFormat(),
-  TextFormat(),
-];
+/// The registry itself, so registering a format is what enrols it in these
+/// checks — there is no second list to keep in step.
+final formats = qrFormats;
 
 void main() {
   group('every format', () {
@@ -67,6 +54,29 @@ void main() {
               },
           };
           expect(format.buildQrString(values), isA<String>());
+        });
+
+        test('has validators that survive an empty value', () {
+          // The screen never calls one with an empty string, but a validator
+          // that throws on one would turn a stray call into a broken form.
+          for (final field in format.fields) {
+            expect(
+              () => field.validate?.call(''),
+              returnsNormally,
+              reason: '${field.id} threw on an empty value',
+            );
+          }
+        });
+
+        test('puts validators only on fields that can hold text', () {
+          for (final field in format.fields) {
+            if (field.validate == null) continue;
+            expect(
+              field.type,
+              isNot(anyOf(QrFieldType.dropdown, QrFieldType.checkbox)),
+              reason: '${field.id} cannot be typed into freely',
+            );
+          }
         });
 
         test('ignores keys it does not declare', () {

@@ -4,7 +4,7 @@ Everything lives in [lib/screens/home_screen.dart](../lib/screens/home_screen.da
 
 ## State
 
-- `_formats` — the registry; `_formats.first` (WiFi) is the initial selection.
+- `qrFormats` — the registry, imported from [lib/formats/registry.dart](../lib/formats/registry.dart); `qrFormats.first` (WiFi) is the initial selection. The screen holds no format list of its own, which is what keeps adding a format out of this file.
 - `_selectedFormat` — current `QrFormat`.
 - `_values` — `Map<String, String>`, one entry per field of the current format.
 - `_controllers` — `TextEditingController` per *text-like* field only (dropdown and checkbox fields have no controller).
@@ -16,7 +16,8 @@ Everything lives in [lib/screens/home_screen.dart](../lib/screens/home_screen.da
 ## Derived getters
 
 - `_qrString` → `_selectedFormat.buildQrString(_values)`, recomputed each build.
-- `_isReady` → every `required` field has a non-empty value.
+- `_errorFor(field)` → the validator's message for a non-empty value, else null. Empty is never an error; see [formats.md](formats.md#validation).
+- `_isReady` → every `required` field has a non-empty value **and** no field has an error. The second half is why an optional field that is filled in wrongly still holds the code back.
 
 ## Layout
 
@@ -29,7 +30,9 @@ Everything lives in [lib/screens/home_screen.dart](../lib/screens/home_screen.da
 
 **Narrow** (`_buildNarrowLayout`, 16px padding) — one `SingleChildScrollView` containing the picker, the fields, then the QR panel below them. The preview is padded rather than `Expanded` (an `Expanded` inside an unbounded scroll view would throw), and `qrSize` is derived from the available width — `(width - 32).clamp(120, 260)`, the 32 accounting for the white container's 16px padding on each side.
 
-Fields themselves are dispatched on `field.type` by `_buildField` via a `switch` expression (`_` falls through to a plain `TextFormField`, with a `*` suffix when required).
+Fields themselves are dispatched on `field.type` by `_buildField` via a `switch` expression (`_` falls through to a plain `TextFormField`, with a `*` suffix when required). `_buildField` computes the error once and passes it as `errorText` to each text-bearing branch; dropdowns and checkboxes cannot hold a bad value, so they have none.
+
+An `errorText` grows the field by a line, and that has to hold at 390px as well as on the desktop — [test/field_validation_test.dart](../test/field_validation_test.dart) fills a vCard with every validated field wrong at once to keep the narrow layout honest.
 
 `_buildQrPanel({required double qrSize, required bool expandPreview})` renders the `QrImageView` on a forced white rounded container (so it scans in dark mode) when `_isReady && qrString.isNotEmpty`, otherwise a placeholder prompt. Below it: a `SelectableText` of the raw payload in monospace, plus a copy-to-clipboard `IconButton` with a snackbar confirmation. `errorStateBuilder` handles payloads too large to encode (reachable with a long vCard or free text).
 

@@ -1,5 +1,6 @@
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import 'validators.dart';
 
 class UrlFormat extends QrFormat {
   @override
@@ -15,6 +16,7 @@ class UrlFormat extends QrFormat {
       label: 'URL',
       required: true,
       hint: 'https://example.com',
+      validate: validateUrl,
     ),
   ];
 

@@ -3,12 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../formats/email_format.dart';
-import '../formats/phone_format.dart';
-import '../formats/text_format.dart';
-import '../formats/url_format.dart';
-import '../formats/vcard_format.dart';
-import '../formats/wifi_format.dart';
+import '../formats/registry.dart';
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import '../image_clipboard.dart';
@@ -30,15 +25,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<QrFormat> _formats = [
-    WifiFormat(),
-    VCardFormat(),
-    UrlFormat(),
-    EmailFormat(),
-    PhoneFormat(),
-    TextFormat(),
-  ];
-
   late QrFormat _selectedFormat;
   final Map<String, String> _values = {};
   final Map<String, TextEditingController> _controllers = {};
@@ -46,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedFormat = _formats.first;
+    _selectedFormat = qrFormats.first;
     _initControllers();
   }
 
@@ -84,9 +70,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String get _qrString => _selectedFormat.buildQrString(_values);
 
+  /// The message to show under [field], or null when there is nothing to say.
+  ///
+  /// An empty value is never an error here: `required` already covers "you have
+  /// not filled this in", and a form that opens with every field flagged red is
+  /// worse than one that waits until there is something to judge.
+  String? _errorFor(QrField field) {
+    final value = _values[field.id] ?? '';
+    if (value.isEmpty) return null;
+    return field.validate?.call(value);
+  }
+
   bool get _isReady {
     for (final field in _selectedFormat.fields) {
       if (field.required && (_values[field.id] ?? '').isEmpty) return false;
+      if (_errorFor(field) != null) return false;
     }
     return true;
   }
@@ -169,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
         labelText: 'Format',
         border: OutlineInputBorder(),
       ),
-      items: _formats
+      items: qrFormats
           .map((f) => DropdownMenuItem(value: f, child: Text(f.name)))
           .toList(),
       onChanged: (format) {
@@ -183,6 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildField(QrField field) {
+    final error = _errorFor(field);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: switch (field.type) {
@@ -216,6 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
             labelText: field.label,
             hintText: field.hint,
             border: const OutlineInputBorder(),
+            errorText: error,
           ),
           maxLines: 4,
         ),
@@ -225,6 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
             labelText: field.label,
             hintText: field.hint,
             border: const OutlineInputBorder(),
+            errorText: error,
           ),
           obscureText: true,
         ),
@@ -235,6 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
             hintText: field.hint,
             border: const OutlineInputBorder(),
             suffixText: field.required ? '*' : null,
+            errorText: error,
           ),
         ),
       },

@@ -1,5 +1,6 @@
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import 'validators.dart';
 
 class PhoneFormat extends QrFormat {
   @override
@@ -15,6 +16,7 @@ class PhoneFormat extends QrFormat {
       label: 'Phone Number',
       required: true,
       hint: '+1 555 000 0000',
+      validate: validatePhone,
     ),
   ];
 
