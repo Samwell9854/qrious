@@ -3,7 +3,7 @@
 Flutter app that generates QR codes from structured input. Pick a format (WiFi, vCard, URL, …), fill in its fields, and a QR code plus the raw encoded string render live as you type.
 
 - Flutter 3.41 stable / Dart SDK `^3.11.5`
-- The only platform scaffolded so far is **Linux** (`linux/`). iOS is the planned target but has no runner yet — see Known rough edges.
+- The only platform scaffolded so far is **Linux** (`linux/`). iOS is on indefinite hold — see Known rough edges.
 - Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing).
 
 ## Commands
@@ -63,5 +63,5 @@ Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` numbe
 
 ## Known rough edges
 
-- **Copying the QR image is Linux-only.** It shells out to `wl-copy` or `xclip`, because Flutter's `Clipboard` carries text only. iOS will need a platform channel or `super_clipboard` (which requires a Rust toolchain); the whole thing sits behind `copyPngToClipboard` so the swap is cheap.
-- **iOS is not scaffolded.** There is no `ios/` directory, so the app cannot be built for a device until someone runs `flutter create --platforms=ios .` — which generates a bundle identifier and signing config that need deciding on.
+- **Copying the QR image is Linux-only.** It shells out to `wl-copy` or `xclip`, because Flutter's `Clipboard` carries text only. iOS would need a platform channel or `super_clipboard` (which requires a Rust toolchain); the whole thing sits behind `copyPngToClipboard` so the swap is cheap if iOS ever happens.
+- **iOS is on indefinite hold.** There is no `ios/` directory. Apple's Developer Program is a paid annual subscription (~$120 CAD/year), which isn't worth it for a free single-purpose app; free sideloading via a personal Apple ID exists but expires every 7 days and requires re-signing from a Mac, which isn't a viable distribution path either. Linux remains the primary target. Revisit only if the cost/reach tradeoff changes.
