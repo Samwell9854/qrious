@@ -31,6 +31,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/image_clipboard.dart](lib/image_clipboard.dart) | Copies a PNG to the clipboard by piping it to `wl-copy` or `xclip` |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |
 | [tool/](tool/) | Release tooling — the version format rule, the tagging script, and the build-number bump |
+| [packaging/](packaging/) | The desktop entry and AppStream metadata, and in `aur/` the `qrious-bin` PKGBUILD template with `render.sh`, which fills it from a release tarball — rendered copies live outside this repo |
 
 ## Core idea
 
