@@ -58,6 +58,22 @@ jobs:
 
       - run: flutter build linux --release
 
+      # Every library in the bundle must search only beside itself. A plugin that
+      # kept its build RUNPATH would point at this runner's checkout once installed.
+      - name: Check the bundle's library search paths
+        run: |
+          bad=0
+          for f in build/linux/x64/release/bundle/qrious build/linux/x64/release/bundle/lib/*.so; do
+            paths=$(readelf -d "$f" | sed -n 's/.*(\(RUN\)\{0,1\}PATH).*\[\(.*\)\]$/\2/p')
+            for p in ${paths//:/ }; do
+              case $p in
+                '$ORIGIN' | '$ORIGIN'/*) ;;
+                *) echo "::error::$f searches $p"; bad=1 ;;
+              esac
+            done
+          done
+          exit $bad
+
       # Only a tag build is packaged, by release.yml, which calls this workflow.
       # Tarred because an artifact does not keep file modes, and the executable
       # would arrive without its x bit.

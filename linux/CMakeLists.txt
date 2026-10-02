@@ -74,6 +74,16 @@ set_target_properties(${BINARY_NAME}
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# Plugin libraries are installed as plain files, so without this they keep their
+# build RUNPATH: the absolute path of flutter/ephemeral on the build machine. Give
+# them the install one instead, their own directory, where libflutter_linux_gtk.so
+# sits.
+foreach(plugin ${FLUTTER_PLUGIN_LIST})
+  set_target_properties(${plugin}_plugin PROPERTIES
+    BUILD_WITH_INSTALL_RPATH ON
+    INSTALL_RPATH "$ORIGIN")
+endforeach(plugin)
+
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build

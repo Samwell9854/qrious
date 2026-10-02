@@ -30,7 +30,6 @@ depends=(
   'pango'
   'zlib'
 )
-makedepends=('patchelf')
 optdepends=(
   'wl-clipboard: copy the QR image on Wayland'
   'xclip: copy the QR image on X11'
@@ -51,13 +50,6 @@ package() {
   cp -r --no-preserve=ownership bundle/. "${pkgdir}/usr/lib/qrious/"
   install -dm755 "${pkgdir}/usr/bin"
   ln -s /usr/lib/qrious/qrious "${pkgdir}/usr/bin/qrious"
-
-  # Flutter installs plugin libraries as plain files, so they keep the build
-  # machine's linux/flutter/ephemeral as their RUNPATH. Point them at their own
-  # directory instead, where libflutter_linux_gtk.so sits.
-  for lib in "${pkgdir}"/usr/lib/qrious/lib/*_plugin.so; do
-    patchelf --set-rpath '$ORIGIN' "${lib}"
-  done
 
   # Desktop entry, AppStream metadata and icons, laid out as under /usr/share.
   install -dm755 "${pkgdir}/usr/share"
