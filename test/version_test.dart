@@ -133,6 +133,41 @@ void main() {
     });
   });
 
+  group('iosBuildCommand', () {
+    test('strips the prerelease label and passes the build number', () {
+      expect(
+        iosBuildCommand('2026.8.0-alpha.1', '7'),
+        'flutter build ipa --build-name=2026.8.0 --build-number=7',
+      );
+    });
+
+    test('has nothing to add for a stable release', () {
+      expect(iosBuildCommand('2026.8.0', '7'), isNull);
+    });
+
+    // The iOS material is dormant, which is when a hardcoded version would slip in
+    // unnoticed. The numeric part is rebuilt through the semver parser rather than
+    // by the same split the function uses, so the two are checked against each
+    // other instead of agreeing by construction.
+    test('derives both values from the version in pubspec.yaml', () {
+      final (name: name, build: build) = splitVersion(
+        readPubspecVersion(File('pubspec.yaml')),
+      );
+      final parsed = tryParseVersion(name)!;
+      final numeric = '${parsed.major}.${parsed.minor}.${parsed.patch}';
+      final command = iosBuildCommand(name, build);
+
+      if (parsed.isPreRelease) {
+        expect(
+          command,
+          'flutter build ipa --build-name=$numeric --build-number=$build',
+        );
+      } else {
+        expect(command, isNull);
+      }
+    });
+  });
+
   group('the version recorded in pubspec.yaml', () {
     late String name;
     late String build;

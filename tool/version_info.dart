@@ -71,6 +71,21 @@ String? nextPreRelease(String name) {
   return '${match.group(1)}${int.parse(match.group(2)!) + 1}';
 }
 
+/// The `flutter build ipa` command for [name] and [build], or null when [name]
+/// is stable and a plain `flutter build ipa` already does the right thing.
+///
+/// iOS rejects a prerelease label in CFBundleShortVersionString, and Flutter passes
+/// the part of the version before `+` straight through, so a prerelease build needs
+/// the numeric version spelled out. Dormant while there is no iOS runner — see
+/// CLAUDE.md "Known rough edges". Both values are derived from what the caller read
+/// out of pubspec.yaml; test/version_test.dart holds it to that, so the command
+/// cannot drift from the version it is printed for.
+String? iosBuildCommand(String name, String build) {
+  if (!name.contains('-')) return null;
+  final numeric = name.split('-').first;
+  return 'flutter build ipa --build-name=$numeric --build-number=$build';
+}
+
 /// Path prefixes whose contents end up in the shipped app, and so change what a
 /// build *does*. Everything else — docs/, test/, tool/, CLAUDE.md — can change
 /// freely without the build on a device becoming a different build.

@@ -117,13 +117,10 @@ void _printFollowUp(String root, String tag, String name, String build) {
     'and commit.',
   );
 
-  // iOS rejects a prerelease label in CFBundleShortVersionString.
-  if (name.contains('-')) {
-    final numeric = name.split('-').first;
-    stdout.writeln(
-      'iOS build for this tag: flutter build ipa --build-name=$numeric '
-      '--build-number=$build',
-    );
+  // Dormant: there is no iOS runner. Kept so the command is ready if one is added.
+  final ios = iosBuildCommand(name, build);
+  if (ios != null) {
+    stdout.writeln('If an iOS runner is ever added, build this tag with: $ios');
   }
 }
 

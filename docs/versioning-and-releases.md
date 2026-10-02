@@ -14,9 +14,9 @@ Tag whenever the answer to *"if a device had this build on it, would I need to t
 
 ## The build number
 
-Unlike ncpa-helper, the version string carries a `+N` build number: `2026.8.0-alpha.1+1`. Both the App Store and Play require one, and require it to **increase on every submitted build**, independent of the version name. So it is a plain counter that never resets — not `micro`, not `alpha.N`. It has no editorial judgement in it, which is why [tool/bump_build.dart](../tool/bump_build.dart) advances it from a pre-commit hook whenever a commit touches app code.
+Unlike ncpa-helper, the version string carries a `+N` build number: `2026.8.0-alpha.1+1`. Both the App Store and Play require one, and require it to **increase on every submitted build**, independent of the version name. So it is a plain counter that never resets — not `micro`, not `alpha.N`. Both stores are on indefinite hold (CLAUDE.md "Known rough edges"); the counter is kept deliberately anyway. It costs nothing, it identifies a build when the version string cannot, and it is already correct if a store target is ever added. It has no editorial judgement in it, which is why [tool/bump_build.dart](../tool/bump_build.dart) advances it from a pre-commit hook whenever a commit touches app code.
 
-**iOS rejects a prerelease label in `CFBundleShortVersionString`.** Flutter passes the part before `+` straight through, so `2026.8.0-alpha.1` fails at upload. An iOS build needs the numeric version only: `flutter build ipa --build-name=2026.8.0 --build-number=1`. `tool/new_release.dart` prints that exact command for the tag it creates, so it does not have to be remembered.
+**iOS rejects a prerelease label in `CFBundleShortVersionString`.** Dormant while iOS is on hold, and kept for the day a runner is added. Flutter passes the part before `+` straight through, so `2026.8.0-alpha.1` would fail at upload. An iOS build needs the numeric version only: `flutter build ipa --build-name=2026.8.0 --build-number=1`. `tool/new_release.dart` prints that command for the tag it creates, built by `iosBuildCommand` from the version it read rather than written out, and [test/version_test.dart](../test/version_test.dart) checks it against `pubspec.yaml`, so the dormant line cannot quietly go stale.
 
 ### Bumping it automatically
 

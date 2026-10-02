@@ -19,7 +19,7 @@ The encoded string is shown beneath the code and can be selected or copied to th
 
 ## Running it
 
-Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.41+, Dart `^3.11.5`). Only the Linux desktop target is currently scaffolded; iOS is planned but has no runner yet.
+Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.41+, Dart `^3.11.5`). Only the Linux desktop target is scaffolded. iOS is on indefinite hold: Apple's paid developer subscription isn't worth it for a free single-purpose app.
 
 ```bash
 flutter pub get
