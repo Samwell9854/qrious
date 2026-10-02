@@ -1,0 +1,75 @@
+# Lint, test and build on every push and pull request.
+#
+# Flutter is pinned, so a push is only ever judged against the toolchain it was
+# written for. The weekly scheduled run builds against the latest stable instead:
+# when a new Flutter breaks something, it shows up there, on its own schedule, not
+# in the middle of a release.
+#
+# release.yml calls this workflow before packaging a tag, so the pin lives here
+# only and a tag cannot ship a bundle that failed these checks.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.41.8
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
+            desktop-file-utils appstream
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          # Empty means the latest stable release.
+          flutter-version: ${{ github.event_name != 'schedule' && env.FLUTTER_VERSION || '' }}
+          cache: true
+
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test tool
+      - run: flutter analyze
+      - run: flutter test
+
+      - name: Validate desktop entry and AppStream metadata
+        run: |
+          desktop-file-validate packaging/io.github.samwell9854.qrious.desktop
+          appstreamcli validate --no-net packaging/io.github.samwell9854.qrious.metainfo.xml
+
+      - run: flutter build linux --release
+
+      # Only a tag build is packaged, by release.yml, which calls this workflow.
+      # Tarred because an artifact does not keep file modes, and the executable
+      # would arrive without its x bit.
+      - name: Archive the bundle
+        if: github.ref_type == 'tag'
+        run: tar -C build/linux/x64/release -cf bundle.tar bundle
+
+      - name: Keep the bundle for release.yml
+        if: github.ref_type == 'tag'
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-x86_64-bundle
+          path: bundle.tar
+          if-no-files-found: error
+          retention-days: 5

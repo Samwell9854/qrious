@@ -1,0 +1,107 @@
+# Package and publish a tagged build as a GitHub release.
+#
+# Runs ci.yml first and packages the bundle it built, so a tag gets the same checks
+# and the same pinned Flutter as any push. The tarball is the whole input of the AUR
+# package: the PKGBUILD downloads it by name and pins its checksum.
+#
+# Tarball layout, one top-level directory so it unpacks cleanly:
+#
+#   qrious-<version>-linux-x86_64/
+#     bundle/          the Flutter bundle: qrious, lib/, data/
+#     share/           applications/, metainfo/, icons/hicolor/ — as under /usr/share
+#     LICENSE
+#
+# The architecture is in the name even with one architecture, so a second one is a
+# second asset rather than a rename of one already published.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      APP_ID: io.github.samwell9854.qrious
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # The tag is derived from pubspec.yaml by tool/new_release.dart; one pushed
+      # by hand that disagrees with it would publish a release under the wrong name.
+      - name: Read the version and check it against the tag
+        run: |
+          full=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)
+          name=${full%%+*}
+          if [ "v$name" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match version: $full in pubspec.yaml"
+            exit 1
+          fi
+          case $name in
+            *-*) prerelease=true;  appstream_type=development ;;
+            *)   prerelease=false; appstream_type=stable ;;
+          esac
+          {
+            echo "VERSION=$name"
+            echo "PRERELEASE=$prerelease"
+            echo "APPSTREAM_TYPE=$appstream_type"
+            echo "RELEASE_DATE=$(git log -1 --format=%cs)"
+            echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)"
+            echo "DIST=qrious-$name-linux-x86_64"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-x86_64-bundle
+
+      - name: Assemble the tree
+        run: |
+          mkdir -p "$DIST/share/applications" "$DIST/share/metainfo" "$DIST/share/icons"
+          tar -xf bundle.tar -C "$DIST"
+          cp LICENSE "$DIST/"
+          cp "packaging/$APP_ID.desktop" "$DIST/share/applications/"
+          cp -r linux/icons/hicolor "$DIST/share/icons/"
+
+          # The <releases> entry is written here, from the version just checked,
+          # rather than kept by hand in the source copy where it would go stale.
+          sed "s|^</component>|  <releases>\n    <release version=\"$VERSION\" date=\"$RELEASE_DATE\" type=\"$APPSTREAM_TYPE\"/>\n  </releases>\n</component>|" \
+            "packaging/$APP_ID.metainfo.xml" > "$DIST/share/metainfo/$APP_ID.metainfo.xml"
+          grep -q "<release version=\"$VERSION\"" "$DIST/share/metainfo/$APP_ID.metainfo.xml"
+
+          test -x "$DIST/bundle/qrious"
+
+      - name: Validate the shipped metadata
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends desktop-file-utils appstream
+          desktop-file-validate "$DIST/share/applications/$APP_ID.desktop"
+          appstreamcli validate --no-net "$DIST/share/metainfo/$APP_ID.metainfo.xml"
+
+      # Sorted, with fixed owners and timestamps, so the same tree always gives the
+      # same tarball and the same checksum.
+      - name: Archive and checksum
+        run: |
+          tar --sort=name --owner=0 --group=0 --numeric-owner \
+            --mtime="@$SOURCE_DATE_EPOCH" -cf - "$DIST" | gzip -9n > "$DIST.tar.gz"
+          sha256sum "$DIST.tar.gz" > "$DIST.tar.gz.sha256"
+          cat "$DIST.tar.gz.sha256"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" "$DIST.tar.gz" "$DIST.tar.gz.sha256" \
+            --verify-tag --title "Qrious $VERSION" --generate-notes "${flags[@]}"
