@@ -38,6 +38,8 @@ Adding a new QR format takes one file in `lib/formats/` and one line in the form
 
 Versions are calendar-based (`yyyy.m.micro`) and tags are derived from `version:` in `pubspec.yaml` by `dart run tool/new_release.dart` — never typed by hand. See [docs/versioning-and-releases.md](docs/versioning-and-releases.md).
 
+Releases are built by CI from a tag and packaged for Arch Linux as `qrious-bin` on the AUR. Why it is packaged that way is in [docs/packaging.md](docs/packaging.md).
+
 ## License
 
 Copyright © 2026 Samuel Giroux.
