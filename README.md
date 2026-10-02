@@ -37,3 +37,9 @@ dart format lib test tool
 Adding a new QR format takes one file in `lib/formats/` and one line in the format registry — see [docs/formats.md](docs/formats.md). The screen's state and its two layouts are described in [docs/ui.md](docs/ui.md).
 
 Versions are calendar-based (`yyyy.m.micro`) and tags are derived from `version:` in `pubspec.yaml` by `dart run tool/new_release.dart` — never typed by hand. See [docs/versioning-and-releases.md](docs/versioning-and-releases.md).
+
+## License
+
+Copyright © 2026 Samuel Giroux.
+
+Qrious is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (`GPL-3.0-or-later`). It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full text.
