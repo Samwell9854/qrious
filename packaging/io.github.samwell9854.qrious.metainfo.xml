@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.samwell9854.qrious</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Qrious</name>
+  <summary>Generate QR codes for WiFi, contacts, URLs, emails, and more</summary>
+  <developer id="io.github.samwell9854">
+    <name>Samuel Giroux</name>
+  </developer>
+  <description>
+    <p>Qrious is a simple and fast QR code generator. Choose a format, fill in the fields, and watch a QR code and its raw encoded payload update live as you type.</p>
+    <p>Save the generated image as a PNG or copy it to the clipboard to share it anywhere. The window adapts from a two-column layout when wide to a single column when narrow.</p>
+    <p>Supported formats:</p>
+    <ul>
+      <li>WiFi networks</li>
+      <li>Contact information as vCards</li>
+      <li>URLs</li>
+      <li>Email addresses</li>
+      <li>Phone numbers</li>
+      <li>Plain text</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.samwell9854.qrious.desktop</launchable>
+  <url type="homepage">https://github.com/Samwell9854/qrious</url>
+  <url type="bugtracker">https://github.com/Samwell9854/qrious/issues</url>
+  <url type="vcs-browser">https://github.com/Samwell9854/qrious</url>
+  <provides>
+    <binary>qrious</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>Utility</category>
+    <category>Graphics</category>
+  </categories>
+</component>

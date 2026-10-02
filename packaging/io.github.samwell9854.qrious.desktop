@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.5
+Type=Application
+Name=Qrious
+GenericName=QR Code Generator
+Comment=Generate QR codes for WiFi, contacts, URLs, emails, phone numbers, and plain text
+Exec=qrious
+Icon=io.github.samwell9854.qrious
+Terminal=false
+Categories=Utility;Graphics;
+Keywords=qr;qr code;generator;wifi;vcard;contact;url;email;phone;
+StartupNotify=true
+StartupWMClass=io.github.samwell9854.qrious
