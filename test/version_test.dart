@@ -128,8 +128,13 @@ void main() {
       expect(nextPreRelease('2026.8.0-alpha.9'), '2026.8.0-alpha.10');
     });
 
-    test('has nothing to advance on a stable release', () {
-      expect(nextPreRelease('2026.8.0'), isNull);
+    test('opens the next micro as a preview after a stable release', () {
+      expect(nextPreRelease('2026.10.0'), '2026.10.1-preview.1');
+      expect(nextPreRelease('2026.10.9'), '2026.10.10-preview.1');
+    });
+
+    test('advances a preview counter without touching micro', () {
+      expect(nextPreRelease('2026.10.1-preview.1'), '2026.10.1-preview.2');
     });
   });
 

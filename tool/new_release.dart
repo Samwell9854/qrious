@@ -111,7 +111,7 @@ void _printFollowUp(String root, String tag, String name, String build) {
   // The build number is left as it is: tool/bump_build.dart advances it from the
   // pre-commit hook on the next commit that touches app code, and this one only
   // edits pubspec.yaml.
-  final next = nextPreRelease(name) ?? '<next version>';
+  final next = nextPreRelease(name)!; // name passed validation above
   stdout.writeln(
     'Then open the next version: set version: to $next+$build in pubspec.yaml '
     'and commit.',

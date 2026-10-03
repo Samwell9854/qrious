@@ -63,12 +63,18 @@ String readPubspecVersion([File? pubspec]) {
   return (name: version.substring(0, plus), build: version.substring(plus + 1));
 }
 
-/// The next prerelease counter for [name], or null when it has no counter to
-/// advance — a stable release is followed by a decision, not an increment.
+/// The version to open once [name] has been tagged, or null when [name] is not
+/// shaped like a version at all.
+///
+/// A prerelease advances its counter: `2026.8.0-alpha.1` opens `2026.8.0-alpha.2`.
+/// A stable release opens the next micro as `-preview.1`, never `-alpha` — alpha
+/// ended at the first release that shipped. If the month turns before that
+/// preview is tagged, the pre-commit hook's calendar reconcile moves it on.
 String? nextPreRelease(String name) {
   final match = RegExp(r'^(.*\.)(\d+)$').firstMatch(name);
-  if (match == null || !name.contains('-')) return null;
-  return '${match.group(1)}${int.parse(match.group(2)!) + 1}';
+  if (match == null) return null;
+  final next = '${match.group(1)}${int.parse(match.group(2)!) + 1}';
+  return name.contains('-') ? next : '$next-preview.1';
 }
 
 /// The `flutter build ipa` command for [name] and [build], or null when [name]
