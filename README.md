@@ -2,6 +2,8 @@
 
 A QR code generator built with Flutter. Pick a format, fill in the fields, and the QR code plus its raw payload update live as you type. The layout adapts from a two-column desktop window to a single scrolling column at phone width.
 
+> **This project is AI-written.** The code, tests and documentation are written by Claude, Anthropic's AI model, working under my direction. I decide what gets built and how it should behave, and I install and test every release myself before it ships. I do not write the code, and I do not review it either: I don't read Dart, so I judge the app by what it does, not by its source. That is vibe coding, and you can decide with that in mind. Every commit Claude contributed to carries a `Co-Authored-By` trailer, so the history shows it too.
+
 ## Installing
 
 On Arch Linux, from the AUR:
