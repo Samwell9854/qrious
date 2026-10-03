@@ -7,6 +7,7 @@ import '../formats/registry.dart';
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import '../image_clipboard.dart';
+import '../qr_encoding.dart';
 import '../qr_png.dart';
 import '../save_location.dart';
 import '../widgets/app_title.dart';
@@ -28,6 +29,10 @@ class _HomeScreenState extends State<HomeScreen> {
   late QrFormat _selectedFormat;
   final Map<String, String> _values = {};
   final Map<String, TextEditingController> _controllers = {};
+
+  // Not reset on a format switch: they describe the output, not the content.
+  ErrorCorrection _errorCorrection = ErrorCorrection.auto;
+  ImageSize _imageSize = ImageSize.medium;
 
   @override
   void initState() {
@@ -79,6 +84,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final value = _values[field.id] ?? '';
     if (value.isEmpty) return null;
     return field.validate?.call(value);
+  }
+
+  /// [qrString] encoded at the chosen error correction, or null when it is too
+  /// long for the largest symbol at that level.
+  EncodedQr? _encode(String qrString) {
+    try {
+      return encodeQr(qrString, _errorCorrection);
+    } on InputTooLongException {
+      return null;
+    }
   }
 
   bool get _isReady {
@@ -244,8 +259,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _saveQrPng() async {
-    final qrString = _qrString;
-    if (qrString.isEmpty) return;
+    final qr = _encode(_qrString);
+    if (qr == null) return;
 
     // Captured before the first await: the messenger must not be looked up from
     // a context that may be gone by the time the dialog closes.
@@ -259,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // The GTK dialog does not append the extension when the user removes it.
       if (!path.toLowerCase().endsWith('.png')) path = '$path.png';
 
-      await File(path).writeAsBytes(await renderQrPng(qrString));
+      await File(path).writeAsBytes(await renderQrPng(qr, size: _imageSize));
       messenger.showSnackBar(SnackBar(content: Text('Saved $path')));
     } catch (error) {
       messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
@@ -267,14 +282,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _copyQrImage() async {
-    final qrString = _qrString;
-    if (qrString.isEmpty) return;
+    final qr = _encode(_qrString);
+    if (qr == null) return;
 
     final messenger = ScaffoldMessenger.of(context);
     final copy = widget.copyImage ?? copyPngToClipboard;
 
     try {
-      await copy(await renderQrPng(qrString));
+      await copy(await renderQrPng(qr, size: _imageSize));
       messenger.showSnackBar(
         const SnackBar(content: Text('QR code copied as an image')),
       );
@@ -285,35 +300,99 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// What the preview is showing, in the beginner's terms.
+  String _describe(EncodedQr qr) {
+    final level = qr.errorCorrection;
+    final chosen = _errorCorrection == ErrorCorrection.auto ? 'Auto: ' : '';
+    final side = _imageSize.pixelsFor(qr);
+    return '$chosen${level.label} error correction, survives '
+        '${level.recoveryPercent}% damage · $side × $side px';
+  }
+
+  /// Error correction and image size, side by side. Each takes half the row, as
+  /// the buttons below do, so both still fit the 390px phone layout.
+  Widget _buildOutputOptions() {
+    return Row(
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<ErrorCorrection>(
+            initialValue: _errorCorrection,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Error correction',
+              border: OutlineInputBorder(),
+            ),
+            items: ErrorCorrection.values
+                .map(
+                  (level) => DropdownMenuItem(
+                    value: level,
+                    child: Text(switch (level.recoveryPercent) {
+                      null => level.label,
+                      final percent => '${level.label} ($percent%)',
+                    }, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(),
+            onChanged: (level) {
+              if (level == null) return;
+              setState(() => _errorCorrection = level);
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DropdownButtonFormField<ImageSize>(
+            initialValue: _imageSize,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Image size',
+              border: OutlineInputBorder(),
+            ),
+            items: ImageSize.values
+                .map(
+                  (size) => DropdownMenuItem(
+                    value: size,
+                    child: Text(size.label, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(),
+            onChanged: (size) {
+              if (size == null) return;
+              setState(() => _imageSize = size);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildQrPanel({required double qrSize, required bool expandPreview}) {
     final qrString = _qrString;
-    final ready = _isReady && qrString.isNotEmpty;
+    final filled = _isReady && qrString.isNotEmpty;
+    final qr = filled ? _encode(qrString) : null;
+    final ready = qr != null;
 
     final preview = Center(
-      child: ready
-          ? Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: QrImageView(
-                data: qrString,
-                version: QrVersions.auto,
-                size: qrSize,
-                errorStateBuilder: (context, error) => const Center(
-                  child: Text(
-                    'QR data too large',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              ),
-            )
-          : const Text(
-              'Fill in the required fields\nto generate a QR code',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
+      child: switch ((filled, qr)) {
+        (_, final EncodedQr qr) => Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: QrImageView.withQr(qr: qr.code, size: qrSize),
+        ),
+        (true, null) => const Text(
+          'Too much data for a QR code\nat this error correction',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.red),
+        ),
+        (false, _) => const Text(
+          'Fill in the required fields\nto generate a QR code',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey),
+        ),
+      },
     );
 
     return Column(
@@ -328,6 +407,16 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: preview,
           ),
+        if (qr != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _describe(qr),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        const SizedBox(height: 16),
+        _buildOutputOptions(),
         const SizedBox(height: 16),
         // Expanded rather than intrinsic widths: two buttons side by side must
         // still fit the 390px phone layout.

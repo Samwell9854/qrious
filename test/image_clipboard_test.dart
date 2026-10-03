@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qrious/image_clipboard.dart';
+import 'package:qrious/qr_encoding.dart';
 import 'package:qrious/qr_png.dart';
 
 /// Stands in for "is this on the PATH", so the choice can be tested without
@@ -97,7 +98,10 @@ void main() {
       'round-trips a PNG through the system clipboard',
       (tester) async {
         await tester.runAsync(() async {
-          final bytes = await renderQrPng('https://example.com', size: 128);
+          final bytes = await renderQrPng(
+            encodeQr('https://example.com', ErrorCorrection.auto),
+            size: ImageSize.small,
+          );
           await copyPngToClipboard(bytes);
 
           final read = Process.runSync(

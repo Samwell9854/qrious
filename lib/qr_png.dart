@@ -2,9 +2,35 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
-/// Renders [data] as a PNG suitable for saving or printing.
+import 'qr_encoding.dart';
+
+/// Image size presets, as whole pixels per module.
+///
+/// Sized per module rather than per image so that a short URL makes a small file
+/// and a dense vCard a large one, and so that every module edge lands on a pixel
+/// boundary: a fixed image size divided by a module count leaves fractions, which
+/// anti-aliasing smears into grey edges.
+enum ImageSize {
+  small('Small', 4),
+  medium('Medium', 8),
+  large('Large', 16),
+  extraLarge('Extra large', 32);
+
+  const ImageSize(this.label, this.pixelsPerModule);
+
+  final String label;
+  final int pixelsPerModule;
+
+  /// Width and height of the image for [qr], quiet zone included.
+  int pixelsFor(EncodedQr qr) =>
+      (qr.moduleCount + quietZoneModules * 2) * pixelsPerModule;
+}
+
+/// The margin the spec requires on every side, in modules.
+const quietZoneModules = 4;
+
+/// Renders [qr] as a PNG suitable for saving or printing.
 ///
 /// This deliberately does not reuse what is on screen. The preview is a widget
 /// styled for the current theme, and two of those choices do not survive being
@@ -19,41 +45,40 @@ import 'package:qr_flutter/qr_flutter.dart';
 ///
 /// So the code is always painted black on white with its own margin, whatever
 /// the app's theme is doing.
-Future<Uint8List> renderQrPng(String data, {double size = 1024}) async {
-  if (data.isEmpty) {
-    throw ArgumentError.value(data, 'data', 'Cannot render an empty QR code.');
-  }
-
-  final painter = QrPainter(
-    data: data,
-    version: QrVersions.auto,
-    gapless: true,
-    eyeStyle: const QrEyeStyle(
-      eyeShape: QrEyeShape.square,
-      color: Color(0xFF000000),
-    ),
-    dataModuleStyle: const QrDataModuleStyle(
-      dataModuleShape: QrDataModuleShape.square,
-      color: Color(0xFF000000),
-    ),
-  );
-
-  // A twelfth of the image on each side is comfortably more than the four
-  // modules the spec asks for, at every version the app can produce.
-  final margin = size / 12;
+Future<Uint8List> renderQrPng(
+  EncodedQr qr, {
+  ImageSize size = ImageSize.medium,
+}) async {
+  final unit = size.pixelsPerModule;
+  final side = size.pixelsFor(qr);
   final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
+  final canvas = Canvas(
+    recorder,
+    Rect.fromLTWH(0, 0, side.toDouble(), side.toDouble()),
+  );
   canvas.drawRect(
-    Rect.fromLTWH(0, 0, size, size),
+    Rect.fromLTWH(0, 0, side.toDouble(), side.toDouble()),
     Paint()..color = const Color(0xFFFFFFFF),
   );
-  canvas.translate(margin, margin);
-  painter.paint(canvas, Size(size - margin * 2, size - margin * 2));
+  final dark = Paint()
+    ..color = const Color(0xFF000000)
+    ..isAntiAlias = false;
+  for (var row = 0; row < qr.moduleCount; row++) {
+    for (var col = 0; col < qr.moduleCount; col++) {
+      if (!qr.image.isDark(row, col)) continue;
+      canvas.drawRect(
+        Rect.fromLTWH(
+          ((col + quietZoneModules) * unit).toDouble(),
+          ((row + quietZoneModules) * unit).toDouble(),
+          unit.toDouble(),
+          unit.toDouble(),
+        ),
+        dark,
+      );
+    }
+  }
 
-  final image = await recorder.endRecording().toImage(
-    size.toInt(),
-    size.toInt(),
-  );
+  final image = await recorder.endRecording().toImage(side, side);
   try {
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     if (bytes == null) {
