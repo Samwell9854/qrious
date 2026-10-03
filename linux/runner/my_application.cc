@@ -1,9 +1,6 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
-#ifdef GDK_WINDOWING_X11
-#include <gdk/gdkx.h>
-#endif
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -13,6 +10,22 @@ struct _MyApplication {
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// Whether the desktop is GNOME, the one desktop whose apps draw their own title
+// bar. XDG_CURRENT_DESKTOP is a colon-separated list, e.g. "ubuntu:GNOME".
+static gboolean is_gnome_desktop() {
+  const gchar* desktop = g_getenv("XDG_CURRENT_DESKTOP");
+  if (desktop == nullptr) {
+    return FALSE;
+  }
+  g_auto(GStrv) names = g_strsplit(desktop, ":", -1);
+  for (gchar** name = names; *name != nullptr; name++) {
+    if (g_strcmp0(*name, "GNOME") == 0) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
@@ -25,31 +38,18 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Use a header bar when running in GNOME as this is the common style used
-  // by applications and is the setup most users will be using (e.g. Ubuntu
-  // desktop).
-  // If running on X and not using GNOME then just use a traditional title bar
-  // in case the window manager does more exotic layout, e.g. tiling.
-  // If running on Wayland assume the header bar will work (may need changing
-  // if future cases occur).
-  gboolean use_header_bar = TRUE;
-#ifdef GDK_WINDOWING_X11
-  GdkScreen* screen = gtk_window_get_screen(window);
-  if (GDK_IS_X11_SCREEN(screen)) {
-    const gchar* wm_name = gdk_x11_screen_get_window_manager_name(screen);
-    if (g_strcmp0(wm_name, "GNOME Shell") != 0) {
-      use_header_bar = FALSE;
-    }
-  }
-#endif
-  if (use_header_bar) {
+  // A GTK header bar only on GNOME, where it is the native style. The template
+  // also used one on every Wayland session, which on KDE and others replaced the
+  // compositor's own title bar with a taller one that carries no app icon.
+  // Without a header bar, GTK asks the compositor to draw the decorations.
+  if (is_gnome_desktop()) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "qrious");
+    gtk_header_bar_set_title(header_bar, "Qrious");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "qrious");
+    gtk_window_set_title(window, "Qrious");
   }
 
   gtk_window_set_default_size(window, 1280, 720);
