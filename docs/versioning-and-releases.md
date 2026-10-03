@@ -52,6 +52,14 @@ The three pieces and the line between them:
 
 Keeping the validator out of `lib/` means the app never carries release policy it does not use, and exactly one place decides what a valid version looks like. The dependency runs one way only: `tool/` may read `lib/`, not the reverse. The practical payoff is in the display — a malformed version must never stop the window from opening, so the app parses leniently while the tooling rejects strictly.
 
+## When to release
+
+Releases are bundled, not cut per change. A history of a dozen releases holding one small change each tells a reader nothing, and every release costs a preview install and a test pass before it ships.
+
+- **Release when a coherent, user-visible set of changes is done**: a feature together with what it needs, or a group of related ones, such as the export options or a batch of new formats.
+- **Cosmetic bugs ride along** with the next such release instead of forcing one.
+- **A bug that breaks what the app is for ships at once as a patch**: a crash, a code that does not scan, or output that is wrong. These do not wait for a bundle.
+
 ## Releasing
 
 ```bash
