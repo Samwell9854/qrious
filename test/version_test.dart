@@ -138,6 +138,54 @@ void main() {
     });
   });
 
+  group('changelogSection', () {
+    const changelog = '''# Changelog
+
+Intro.
+
+## 2026.10.1
+
+Summary.
+
+### Export
+
+- A change.
+
+## 2026.10.0
+
+Older.
+''';
+
+    test(
+      'returns the section, up to the next version but past subheadings',
+      () {
+        final section = changelogSection(changelog, '2026.10.1')!;
+        expect(section, startsWith('Summary.'));
+        expect(section, contains('- A change.'));
+        expect(section, isNot(contains('Older.')));
+      },
+    );
+
+    test('gives a preview the section of the version it leads to', () {
+      expect(
+        changelogSection(changelog, '2026.10.1-preview.2'),
+        changelogSection(changelog, '2026.10.1'),
+      );
+    });
+
+    test('is null for a missing or empty section', () {
+      expect(changelogSection(changelog, '2026.11.0'), isNull);
+      expect(
+        changelogSection('## 2026.10.1\n\n## 2026.10.0\nx', '2026.10.1'),
+        isNull,
+      );
+    });
+
+    test('does not match a version that only starts the same', () {
+      expect(changelogSection('## 2026.10.10\nx', '2026.10.1'), isNull);
+    });
+  });
+
   group('iosBuildCommand', () {
     test('strips the prerelease label and passes the build number', () {
       expect(

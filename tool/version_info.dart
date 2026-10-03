@@ -179,3 +179,22 @@ String? reconcileWithCalendar(String name, DateTime now) {
 
   return '${now.year}.${now.month}.0-$label.1';
 }
+
+/// The CHANGELOG.md section that becomes [name]'s release notes, or null when
+/// there is none or it is empty.
+///
+/// The section is headed `## <yyyy.m.micro>`, and a prerelease uses the section of
+/// the version it leads to. The release workflow extracts the same section with
+/// awk; this is the check that refuses to tag without it.
+String? changelogSection(String changelog, String name) {
+  final heading = '## ${name.split('-').first}';
+  final lines = changelog.split('\n');
+  final start = lines.indexOf(heading);
+  if (start < 0) return null;
+  final body = lines
+      .skip(start + 1)
+      .takeWhile((line) => !line.startsWith('## '))
+      .join('\n')
+      .trim();
+  return body.isEmpty ? null : body;
+}

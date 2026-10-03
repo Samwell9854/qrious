@@ -4,7 +4,8 @@
 // Tags the current commit with the version recorded in pubspec.yaml.
 //
 // Reads the version: field, checks it against the yyyy.m.micro calendar-version
-// format, and creates the matching annotated tag. The version is edited by hand in
+// format and that CHANGELOG.md has its release notes, and creates the matching
+// annotated tag. The version is edited by hand in
 // pubspec.yaml; this only derives the tag from it, so the two cannot disagree.
 //
 // Nothing is pushed — the command to do that is printed instead.
@@ -48,6 +49,16 @@ void main(List<String> args) {
   }
 
   final tag = 'v$name';
+
+  final changelog = File('$root/CHANGELOG.md');
+  if (!changelog.existsSync() ||
+      changelogSection(changelog.readAsStringSync(), name) == null) {
+    _fail(
+      'CHANGELOG.md has no section for ${name.split('-').first}, which becomes '
+      "$tag's release notes.\nAdd '## ${name.split('-').first}' with the "
+      'changes, then commit.',
+    );
+  }
 
   if (_git(root, ['rev-parse', '--git-dir']).exitCode != 0) {
     _fail("'$root' is not a git repository.");

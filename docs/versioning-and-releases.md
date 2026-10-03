@@ -60,10 +60,25 @@ Releases are bundled, not cut per change. A history of a dozen releases holding 
 - **Cosmetic bugs ride along** with the next such release instead of forcing one.
 - **A bug that breaks what the app is for ships at once as a patch**: a crash, a code that does not scan, or output that is wrong. These do not wait for a bundle.
 
+## Release notes
+
+Each version's GitHub release notes are its section in [CHANGELOG.md](../CHANGELOG.md), headed `## <yyyy.m.micro>` and written before the first preview is tagged. A section has:
+
+- **A summary** of one to three lines: what this release is about.
+- **Themed headings** with user-facing bullets, each citing the issue it addresses. They describe what changed for someone using the app, not the commits: docs, tests and tooling stay out unless a user would notice them.
+- **An `### Issues` line** listing what the release fixes and implements. It is what gets closed when the stable release ships.
+
+A section covers everything since the previous **stable** release, so nothing is repeated across stable releases. A point appears again only when a later release changes it again.
+
+Previews use the section of the version they lead to, under a banner saying they are previews. The section is updated as previews iterate, so each preview's notes show the release as it stood then, and the stable release's notes are the final text. The release workflow builds the notes and adds a comparison link to the previous stable tag; `tool/new_release.dart` refuses to tag a version whose section is missing or empty.
+
+**Issues stay open until the stable release ships.** A preview is for testing, and a fix that has not reached users has not fixed anything for them yet. Once the stable release is published, each issue in its `### Issues` line is closed with a comment naming the release.
+
 ## Releasing
 
 ```bash
-# 1. Reconcile version: in pubspec.yaml with the calendar, and commit.
+# 1. Reconcile version: in pubspec.yaml with the calendar, write its CHANGELOG.md
+#    section, and commit.
 flutter test                                  # version_test.dart guards the format
 dart run tool/new_release.dart --dry-run      # every check, no tag
 dart run tool/new_release.dart                # creates the annotated tag
@@ -73,6 +88,6 @@ git push origin v2026.8.0-alpha.1             # the script prints this line
 
 Step 2 changes the version name only — the build number is already where the hook left it.
 
-The script refuses a malformed version, a version with no build number, a dirty tree (`--allow-dirty` overrides), a tag that already exists, and a repository with no commits. It **never pushes and never writes to the repo** — it validates and tags; opening the next version is a commit you make, which keeps the one tool that touches git history from also editing files.
+The script refuses a malformed version, a version with no build number, a version with no CHANGELOG.md section, a dirty tree (`--allow-dirty` overrides), a tag that already exists, and a repository with no commits. It **never pushes and never writes to the repo** — it validates and tags; opening the next version is a commit you make, which keeps the one tool that touches git history from also editing files.
 
 The format rule lives once, in `tool/version_info.dart`, and is used by both the release script and [test/version_test.dart](../test/version_test.dart) — which also asserts the version currently in pubspec.yaml is well-formed, carries a build number, and is not dated in the future, so a typo fails `flutter test` instead of surfacing at release time.

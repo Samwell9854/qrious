@@ -36,7 +36,11 @@ jobs:
       APP_ID: io.github.samwell9854.qrious
       TAG: ${{ github.ref_name }}
     steps:
+      # Full history and tags: the notes link to a comparison with the previous
+      # stable tag.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # The tag is derived from pubspec.yaml by tool/new_release.dart; one pushed
       # by hand that disagrees with it would publish a release under the wrong name.
@@ -60,6 +64,37 @@ jobs:
             echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)"
             echo "DIST=qrious-$name-linux-x86_64"
           } >> "$GITHUB_ENV"
+
+      # The notes are the CHANGELOG.md section for the version, "## <yyyy.m.micro>".
+      # A preview uses the section of the version it previews, under a banner, so the
+      # notes are written once and every preview of a version shows them as they then
+      # stood. tool/new_release.dart refuses to tag without the section; this check
+      # catches a tag pushed by hand.
+      - name: Write the release notes
+        run: |
+          base=${VERSION%%-*}
+          awk -v heading="## $base" '
+            $0 == heading { inside = 1; next }
+            inside && /^## / { exit }
+            inside
+          ' CHANGELOG.md | sed '/./,$!d' > section.md
+          if ! grep -q '[^[:space:]]' section.md; then
+            echo "::error::CHANGELOG.md has no section for $base"
+            exit 1
+          fi
+          previous=$(git tag --list 'v*' --sort=-v:refname | grep -v -- - | grep -vx "$TAG" | head -n 1 || true)
+          {
+            if [ "$PRERELEASE" = true ]; then
+              echo "> **Preview of $base**, for testing before the stable release. These notes may still change."
+              echo
+            fi
+            cat section.md
+            if [ -n "$previous" ]; then
+              echo
+              echo "**Full changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$previous...$TAG"
+            fi
+          } > notes.md
+          cat notes.md
 
       - uses: actions/download-artifact@v8
         with:
@@ -104,4 +139,4 @@ jobs:
           flags=()
           if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
           gh release create "$TAG" "$DIST.tar.gz" "$DIST.tar.gz.sha256" \
-            --verify-tag --title "Qrious $VERSION" --generate-notes "${flags[@]}"
+            --verify-tag --title "Qrious $VERSION" --notes-file notes.md "${flags[@]}"
