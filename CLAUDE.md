@@ -26,7 +26,9 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/formats/](lib/formats/) | One file per supported QR format, plus `registry.dart` (the list the UI reads) and `validators.dart` (rules shared across formats) |
 | [lib/screens/home_screen.dart](lib/screens/home_screen.dart) | The whole UI: format picker, generated form, QR preview |
 | [lib/widgets/version_badge.dart](lib/widgets/version_badge.dart) | The version chip in the app bar |
-| [lib/qr_png.dart](lib/qr_png.dart) | Renders the QR code to a PNG for saving — black on white, with a quiet zone |
+| [lib/qr_encoding.dart](lib/qr_encoding.dart) | Encodes a payload at the chosen error correction, including how Auto picks a level |
+| [lib/qr_png.dart](lib/qr_png.dart), [lib/qr_svg.dart](lib/qr_svg.dart) | Render the encoded code to a PNG or an SVG for saving — black on white, with a quiet zone, sized in pixels per module |
+| [lib/qr_export.dart](lib/qr_export.dart) | The file types Save offers, their rendering and extensions, and the suggested filename |
 | [lib/save_location.dart](lib/save_location.dart) | The save dialog, behind a typedef the screen can stub in tests |
 | [lib/image_clipboard.dart](lib/image_clipboard.dart) | Copies a PNG to the clipboard by piping it to `wl-copy` or `xclip` |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |

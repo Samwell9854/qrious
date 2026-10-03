@@ -89,13 +89,3 @@ Future<Uint8List> renderQrPng(
     image.dispose();
   }
 }
-
-/// A filename for [formatId] that sorts by when it was made: `qrious-wifi.png`
-/// with a timestamp, so saving several in a row does not overwrite one file.
-String qrFileName(String formatId, DateTime when) {
-  String two(int n) => n.toString().padLeft(2, '0');
-  final stamp =
-      '${when.year}${two(when.month)}${two(when.day)}'
-      '-${two(when.hour)}${two(when.minute)}${two(when.second)}';
-  return 'qrious-$formatId-$stamp.png';
-}

@@ -84,26 +84,4 @@ void main() {
       });
     });
   });
-
-  group('qrFileName', () {
-    test('carries the format and a sortable timestamp', () {
-      expect(
-        qrFileName('wifi', DateTime(2026, 8, 30, 9, 5, 4)),
-        'qrious-wifi-20260830-090504.png',
-      );
-    });
-
-    test('zero-pads so names sort chronologically as strings', () {
-      final early = qrFileName('url', DateTime(2026, 1, 2, 3, 4, 5));
-      final later = qrFileName('url', DateTime(2026, 11, 12, 13, 14, 15));
-      expect(early.compareTo(later), isNegative);
-    });
-
-    test('differs second by second, so a second save does not overwrite', () {
-      expect(
-        qrFileName('vcard', DateTime(2026, 8, 30, 9, 5, 4)),
-        isNot(qrFileName('vcard', DateTime(2026, 8, 30, 9, 5, 5))),
-      );
-    });
-  });
 }

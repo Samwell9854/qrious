@@ -114,10 +114,7 @@ void main() {
       findsOneWidget,
     );
     final save = tester.widget<FilledButton>(
-      find.ancestor(
-        of: find.text('Save PNG'),
-        matching: find.byType(FilledButton),
-      ),
+      find.ancestor(of: find.text('Save'), matching: find.byType(FilledButton)),
     );
     expect(save.onPressed, isNull);
   });

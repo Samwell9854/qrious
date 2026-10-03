@@ -8,6 +8,7 @@ import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import '../image_clipboard.dart';
 import '../qr_encoding.dart';
+import '../qr_export.dart';
 import '../qr_png.dart';
 import '../save_location.dart';
 import '../widgets/app_title.dart';
@@ -258,23 +259,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _saveQrPng() async {
+  Future<void> _saveQr(ExportFileType type) async {
     final qr = _encode(_qrString);
     if (qr == null) return;
 
     // Captured before the first await: the messenger must not be looked up from
     // a context that may be gone by the time the dialog closes.
     final messenger = ScaffoldMessenger.of(context);
-    final pick = widget.pickSaveLocation ?? pickPngSaveLocation;
+    final pick = widget.pickSaveLocation ?? pickSaveLocation;
 
     try {
-      var path = await pick(qrFileName(_selectedFormat.id, DateTime.now()));
-      if (path == null) return; // Cancelled, which is not a failure.
+      final picked = await pick(
+        qrFileName(_selectedFormat.id, DateTime.now(), type),
+        type,
+      );
+      if (picked == null) return; // Cancelled, which is not a failure.
 
-      // The GTK dialog does not append the extension when the user removes it.
-      if (!path.toLowerCase().endsWith('.png')) path = '$path.png';
-
-      await File(path).writeAsBytes(await renderQrPng(qr, size: _imageSize));
+      final path = type.withExtension(picked);
+      await File(path).writeAsBytes(await type.render(qr, _imageSize));
       messenger.showSnackBar(SnackBar(content: Text('Saved $path')));
     } catch (error) {
       messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
@@ -423,10 +425,23 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           children: [
             Expanded(
-              child: FilledButton.icon(
-                onPressed: ready ? _saveQrPng : null,
-                icon: const Icon(Icons.download, size: 18),
-                label: const Text('Save PNG'),
+              // A menu rather than a choice in the save dialog, which on Linux
+              // cannot report which file type was picked.
+              child: MenuAnchor(
+                menuChildren: [
+                  for (final type in ExportFileType.values)
+                    MenuItemButton(
+                      onPressed: () => _saveQr(type),
+                      child: Text(type.label),
+                    ),
+                ],
+                builder: (context, menu, _) => FilledButton.icon(
+                  onPressed: ready
+                      ? () => menu.isOpen ? menu.close() : menu.open()
+                      : null,
+                  icon: const Icon(Icons.download, size: 18),
+                  label: const Text('Save'),
+                ),
               ),
             ),
             if (imageClipboardSupported) ...[

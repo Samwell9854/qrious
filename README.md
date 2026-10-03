@@ -34,7 +34,7 @@ The code can be saved as a file or, on Linux, copied to the clipboard as an imag
 | File type | Status | Why |
 | --- | --- | --- |
 | PNG | Supported | Lossless, so module edges stay sharp, and readable by everything. |
-| SVG | Planned ([#6](https://github.com/Samwell9854/qrious/issues/6)) | Vector, so it scales to posters and signage without blurring. |
+| SVG | Supported | Vector, so it scales to posters and signage without blurring. |
 | PDF | Parked ([#12](https://github.com/Samwell9854/qrious/issues/12)) | Vector and print-ready, but a PDF is a page, so it brings page size, orientation and placement choices that SVG avoids. |
 | JPEG | Not planned | Lossy compression blurs the edges between modules, which makes the code harder to scan. |
 | WebP, AVIF | Not planned | No gain over PNG for a two-colour image, and less widely supported. |
