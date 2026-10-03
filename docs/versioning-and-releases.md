@@ -10,9 +10,9 @@ While the app is not yet something to hand to a user, every release carries `-al
 
 Tag whenever the answer to *"if a device had this build on it, would I need to tell it apart from the last one?"* is yes — per meaningful capability change, not per commit. Because the version must be correct *in* the commit it ships in, reconcile `version:` with the calendar immediately before committing: work started in August but committed in September becomes `2026.9.0-alpha.1`.
 
-**`version:` moves to the next counter immediately after a tag is created — it never keeps a version that has already shipped.** A tree between tags therefore names something *unreleased*, and a tagged version string permanently means the artifact that tag points at. The alternative — leaving it on the last release until the next is prepared — makes an untagged build claim a tested, tagged identity it does not have, which is the dangerous direction: a build on a phone has no git, so the in-bundle string is the only identifier that device has. This follows the Linux kernel (mainline becomes `6.8-rc0` the moment 6.7 ships), Maven's `-SNAPSHOT`, and Debian's `UNRELEASED`. Skipped counters are fine — a bump to `alpha.12` that is never tagged costs nothing.
+**`version:` moves to the next counter in the first commit after a tag that changes app code — no build ever carries a version that has already shipped.** A tree whose app differs from the last tag therefore names something *unreleased*, and a tagged version string permanently means the artifact that tag points at. Until such a commit, the tree still builds exactly the tagged app, so it keeps the tagged name truthfully, and no commit exists only to change the version. The alternative — leaving it on the last release until the next is prepared — makes an untagged build claim a tested, tagged identity it does not have, which is the dangerous direction: a build on a phone has no git, so the in-bundle string is the only identifier that device has. This follows the Linux kernel (mainline becomes `6.8-rc0` the moment 6.7 ships), Maven's `-SNAPSHOT`, and Debian's `UNRELEASED`, except that those open the next version in a commit of its own; here the pre-commit hook folds it into the first commit that makes it necessary. Skipped counters are fine — a bump to `alpha.12` that is never tagged costs nothing.
 
-**What opens next depends on what was just tagged.** A prerelease advances its counter: tagging `2026.8.0-alpha.1` opens `2026.8.0-alpha.2`. A stable release opens the next micro as a preview: tagging `2026.10.0` opens `2026.10.1-preview.1`. Never `-alpha` — that label ended with the first release that shipped. An untagged tree between releases is exactly what `-preview` describes, a build nobody has yet run as an installed app. If the month turns before that preview is tagged, the pre-commit hook rolls it to `2026.11.0-preview.1` like any other prerelease. `tool/new_release.dart` prints the exact line to set, so none of this has to be remembered.
+**What opens next depends on what was just tagged.** A prerelease advances its counter: tagging `2026.8.0-alpha.1` opens `2026.8.0-alpha.2`. A stable release opens the next micro as a preview: tagging `2026.10.0` opens `2026.10.1-preview.1`. Never `-alpha` — that label ended with the first release that shipped. An untagged tree between releases is exactly what `-preview` describes, a build nobody has yet run as an installed app. If the month turns before that preview is tagged, the pre-commit hook rolls it to `2026.11.0-preview.1` like any other prerelease. The hook works this out from whether `v<version>` is tagged, and `tool/new_release.dart` prints what it will open, so none of this has to be remembered.
 
 ## The build number
 
@@ -30,13 +30,15 @@ git config core.hooksPath tool/hooks
 
 From then on, any commit that stages a change under `lib/`, `assets/` or a platform directory (`linux/`, `ios/`, …) advances `+build` and stages `pubspec.yaml` along with it. A commit that only touches `docs/`, `test/`, `tool/` or `CLAUDE.md` leaves it alone: the build on a device is not a different build because a doc changed. `git commit --no-verify` skips the hook, and `dart run tool/bump_build.dart --dry-run` says what it would do without doing it.
 
-The same commit also reconciles the calendar. A version left over from last month names a release that is no longer the one being worked toward, so an app-code commit in September against `2026.8.0-alpha.4` rewrites it to `2026.9.0-alpha.1` — micro back to `0`, the counter restarted because it is scoped to the numeric version, the label kept. A stable version is left alone however stale it is: what follows a shipped release is a decision, not an increment.
+The same commit opens the next version when the current one is tagged: a commit that changes app code against a tagged `2026.10.1` makes it `2026.10.2-preview.1`, and against a tagged `2026.10.1-preview.1` makes it `2026.10.1-preview.2`.
 
-**What is automated is what has no judgement in it.** The build number is a counter the stores require to increase; the calendar rollover is a rule stated above, not a choice. What `micro` should be, when `-alpha` is dropped, and whether a commit deserves a tag are decisions made at release time by a person who knows whether a build needs telling apart from the last one. A counter that advanced those on every commit would answer that question with "always", which is the same as not answering it.
+It also reconciles the calendar. A version left over from last month names a release that is no longer the one being worked toward, so an app-code commit in September against `2026.8.0-alpha.4` rewrites it to `2026.9.0-alpha.1` — micro back to `0`, the counter restarted because it is scoped to the numeric version, the label kept. A stable version is left alone however stale it is: what follows a shipped release is a decision, not an increment.
+
+**What is automated is what has no judgement in it.** The build number is a counter the stores require to increase; opening the next version after a tag and the calendar rollover are rules stated above, not choices. What `micro` should be, when `-alpha` is dropped, and whether a commit deserves a tag are decisions made at release time by a person who knows whether a build needs telling apart from the last one. A counter that advanced those on every commit would answer that question with "always", which is the same as not answering it.
 
 `pubspec.yaml` is deliberately not in the trigger list: the version lives there, so counting it as app code would make each bump trigger the next one. A change that is *only* a dependency edit therefore needs `dart run tool/bump_build.dart --force` — in practice a dependency changes because something in `lib/` is about to use it, and that commit triggers the bump on its own.
 
-Because the commit that opens the next version after a tag touches nothing but `pubspec.yaml`, it neither bumps nor reconciles; the next app-code commit does. So `new_release.dart` prints the next version name with the build number unchanged.
+A commit that touches only docs, tests or tooling after a tag leaves `version:` on the tagged release, which is still exactly what such a tree builds.
 
 ## The source of truth
 
@@ -77,16 +79,15 @@ Previews use the section of the version they lead to, under a banner saying they
 ## Releasing
 
 ```bash
-# 1. Reconcile version: in pubspec.yaml with the calendar, write its CHANGELOG.md
-#    section, and commit.
+# Reconcile version: in pubspec.yaml with the calendar, write its CHANGELOG.md
+# section, and commit.
 flutter test                                  # version_test.dart guards the format
 dart run tool/new_release.dart --dry-run      # every check, no tag
 dart run tool/new_release.dart                # creates the annotated tag
 git push origin v2026.8.0-alpha.1             # the script prints this line
-# 2. Set version: to the next counter (the script prints that too) and commit.
 ```
 
-Step 2 changes the version name only — the build number is already where the hook left it.
+There is no step after tagging: the next commit that changes app code opens the next version.
 
 The script refuses a malformed version, a version with no build number, a version with no CHANGELOG.md section, a dirty tree (`--allow-dirty` overrides), a tag that already exists, and a repository with no commits. It **never pushes and never writes to the repo** — it validates and tags; opening the next version is a commit you make, which keeps the one tool that touches git history from also editing files.
 

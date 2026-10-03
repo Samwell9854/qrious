@@ -77,6 +77,15 @@ String? nextPreRelease(String name) {
   return name.contains('-') ? next : '$next-preview.1';
 }
 
+/// The version to work toward instead of [name] when [name] has already shipped,
+/// meaning [isTagged] reports its tag; null when it has not.
+///
+/// The pre-commit hook applies this in the first commit after a tag that changes
+/// app code, the moment a build would otherwise claim an identity it no longer
+/// has. Until then the tree builds the tagged app, so nothing needs opening.
+String? openAfterShipped(String name, bool Function(String tag) isTagged) =>
+    isTagged('v$name') ? nextPreRelease(name) : null;
+
 /// The `flutter build ipa` command for [name] and [build], or null when [name]
 /// is stable and a plain `flutter build ipa` already does the right thing.
 ///

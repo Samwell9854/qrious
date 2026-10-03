@@ -78,6 +78,36 @@ void main() {
     });
   });
 
+  group('openAfterShipped', () {
+    bool tagged(String tag) =>
+        {'v2026.10.1', 'v2026.10.1-preview.1'}.contains(tag);
+
+    test('opens the next preview once a stable version is tagged', () {
+      expect(openAfterShipped('2026.10.1', tagged), '2026.10.2-preview.1');
+    });
+
+    test('advances the counter once a preview is tagged', () {
+      expect(
+        openAfterShipped('2026.10.1-preview.1', tagged),
+        '2026.10.1-preview.2',
+      );
+    });
+
+    test('leaves an untagged version alone', () {
+      expect(openAfterShipped('2026.10.2-preview.1', tagged), isNull);
+      expect(openAfterShipped('2026.10.2', tagged), isNull);
+    });
+
+    test('asks about the tag the release script would create', () {
+      final asked = <String>[];
+      openAfterShipped('2026.10.1', (tag) {
+        asked.add(tag);
+        return false;
+      });
+      expect(asked, ['v2026.10.1']);
+    });
+  });
+
   group('reconcileWithCalendar', () {
     test('leaves a version already dated this month alone', () {
       expect(

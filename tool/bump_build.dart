@@ -3,9 +3,10 @@
 //
 // Advances the version in pubspec.yaml when a commit changes app code.
 //
-// Run from the pre-commit hook in tool/hooks/. It owns the two parts of the
-// version with no editorial judgement in them: the +build counter, which must
-// increase on every build submitted to a store, and the calendar rollover, which
+// Run from the pre-commit hook in tool/hooks/. It owns the parts of the version
+// with no editorial judgement in them: the +build counter, which must increase on
+// every build submitted to a store; opening the next version once the current one
+// has been tagged; and the calendar rollover, which
 // docs/versioning-and-releases.md states as a rule — work started in August but
 // committed in September is 2026.9.0-alpha.1.
 //
@@ -47,6 +48,16 @@ void main(List<String> args) {
     exit(1);
   }
 
+  // A version that has been tagged has shipped, and this commit changes the app,
+  // so the build it makes is no longer that release. Opened here rather than in a
+  // commit of its own straight after tagging, which would change nothing else.
+  final shipped = splitVersion(next).name;
+  final opened = openAfterShipped(
+    shipped,
+    (tag) => _stdout(_git(root, ['tag', '--list', tag])).isNotEmpty,
+  );
+  if (opened != null) next = '$opened+${splitVersion(next).build}';
+
   // The calendar rollover is a stated rule, not a judgement, so it is applied
   // here too: a version left over from last month names a release that is no
   // longer the one being worked toward. What micro should be, and when -alpha
@@ -76,7 +87,13 @@ void main(List<String> args) {
     exit(1);
   }
 
-  if (reconciled != null) {
+  if (opened != null) {
+    stdout.writeln('Version $current -> $next ($because)');
+    stdout.writeln(
+      'v$shipped is tagged, so this commit opens the next version. Check that '
+      '${splitVersion(next).name} is the release you mean to be working toward.',
+    );
+  } else if (reconciled != null) {
     stdout.writeln('Version $current -> $next ($because)');
     stdout.writeln(
       'The calendar moved on, so the version name was reset with it. Check that '
@@ -107,3 +124,5 @@ List<String> _stagedPaths(String root) {
 
 ProcessResult _git(String root, List<String> args) =>
     Process.runSync('git', ['-C', root, ...args]);
+
+String _stdout(ProcessResult result) => (result.stdout as String).trim();

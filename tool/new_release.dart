@@ -115,17 +115,11 @@ void main(List<String> args) {
 void _printFollowUp(String root, String tag, String name, String build) {
   stdout.writeln('Push it with: git push origin $tag');
 
-  // The version in pubspec.yaml never keeps a version that has shipped — see
-  // docs/versioning-and-releases.md. Printed rather than done here: this script
-  // validates and tags, and writing to the repo would make it the only tool in
-  // tool/ that does.
-  // The build number is left as it is: tool/bump_build.dart advances it from the
-  // pre-commit hook on the next commit that touches app code, and this one only
-  // edits pubspec.yaml.
+  // Nothing to commit afterwards: the pre-commit hook opens the next version in
+  // the first commit that changes app code. See docs/versioning-and-releases.md.
   final next = nextPreRelease(name)!; // name passed validation above
   stdout.writeln(
-    'Then open the next version: set version: to $next+$build in pubspec.yaml '
-    'and commit.',
+    'The next commit that changes app code opens $next automatically.',
   );
 
   // Dormant: there is no iOS runner. Kept so the command is ready if one is added.
