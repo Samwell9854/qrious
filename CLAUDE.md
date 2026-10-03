@@ -39,6 +39,10 @@ Formats are **data-driven**. A format declares its fields; the UI builds itself 
 
 See [docs/formats.md](docs/formats.md) for the contract and a walkthrough of adding one, and [docs/ui.md](docs/ui.md) for the screen's state and its two layouts.
 
+## Product stance
+
+**No artificial limits.** The app does not decide that a user's choice is a mistake: anything the QR spec allows should be reachable. Ease of use comes from defaults and plain-language choices, not from removing options. The planned split is a beginner mode, which is what is built today, and an expert mode that exposes the rest ([#13](https://github.com/Samwell9854/qrious/issues/13)). A new control starts in its beginner form, and its expert form goes on that issue.
+
 ## Commit messages
 
 [Conventional Commits](https://www.conventionalcommits.org): `type(scope): summary` — `fix`, `feat`, `docs`, `test`, `refactor`, `chore`. Scope is usually the area (`wifi`, `vcard`, `home`, `layout`, `version`). Body is short imperative bullets (`Add`, `Fix`, `Remove`, `Update`), roughly ten lines at most. End with `Co-Authored-By`; no issue refs, no hash lists.
@@ -61,6 +65,10 @@ Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` numbe
 - **Every layout change has to hold at phone width as well as desktop.** The breakpoint is 700px and both paths are covered by tests — a `RenderFlex` overflow fails the suite.
 - **Markdown is not hard-wrapped: one line per paragraph, list item or table row.** Every reader of these files renders them, and a renderer wraps to the width it has. A hard wrap fixes the text at one column that is right for nobody else's window, and it makes every later edit re-flow the lines below it, so a one-word change arrives as a paragraph-sized diff.
 - **Comments in code keep their manual wrapping, at roughly 90 columns.** The opposite medium: nothing re-flows a comment, and it is read beside code that is already wrapped. Reflowing prose and wrapping comments are the same rule — let the reader's width decide where it can, pick a sane width where it cannot.
+
+## Feature ideas
+
+**A feature idea that comes up in conversation and isn't being built now goes into a GitHub issue, without being asked.** Add it to an existing issue when one covers it, otherwise open a new one with the `enhancement` label. Not into memory, `docs/` or a TODO comment: the issue list is where work gets picked from, so an idea anywhere else is lost. Say in the reply which issue it went to.
 
 ## Known rough edges
 

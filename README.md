@@ -27,6 +27,19 @@ Each [GitHub release](https://github.com/Samwell9854/qrious/releases) also carri
 
 The encoded string is shown beneath the code and can be selected or copied to the clipboard.
 
+## Image export
+
+The code can be saved as a file or, on Linux, copied to the clipboard as an image. These are the file types considered, and why each is or is not offered. The ones marked *not planned* stay that way unless a new feature changes the reasoning.
+
+| File type | Status | Why |
+| --- | --- | --- |
+| PNG | Supported | Lossless, so module edges stay sharp, and readable by everything. |
+| SVG | Planned ([#6](https://github.com/Samwell9854/qrious/issues/6)) | Vector, so it scales to posters and signage without blurring. |
+| PDF | Parked ([#12](https://github.com/Samwell9854/qrious/issues/12)) | Vector and print-ready, but a PDF is a page, so it brings page size, orientation and placement choices that SVG avoids. |
+| JPEG | Not planned | Lossy compression blurs the edges between modules, which makes the code harder to scan. |
+| WebP, AVIF | Not planned | No gain over PNG for a two-colour image, and less widely supported. |
+| EPS | Not planned | A legacy print format that SVG and PDF have replaced. |
+
 ## Running it
 
 Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.41+, Dart `^3.11.5`). Only the Linux desktop target is scaffolded. iOS is on indefinite hold: Apple's paid developer subscription isn't worth it for a free single-purpose app.
