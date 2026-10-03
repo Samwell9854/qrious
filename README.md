@@ -2,7 +2,15 @@
 
 A QR code generator built with Flutter. Pick a format, fill in the fields, and the QR code plus its raw payload update live as you type. The layout adapts from a two-column desktop window to a single scrolling column at phone width.
 
-**Status: alpha.** Not yet something to hand to anyone — see [docs/versioning-and-releases.md](docs/versioning-and-releases.md).
+## Installing
+
+On Arch Linux, from the AUR:
+
+```bash
+paru -S qrious-bin
+```
+
+Each [GitHub release](https://github.com/Samwell9854/qrious/releases) also carries the Linux build as a tarball.
 
 ## Formats
 
