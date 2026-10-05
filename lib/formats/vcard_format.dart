@@ -27,7 +27,19 @@ class VCardFormat extends QrFormat {
       hint: '+1 555 000 0000',
       validate: validatePhone,
     ),
+    QrField(
+      id: 'phone_type',
+      label: 'Phone Type',
+      type: QrFieldType.dropdown,
+      options: ['Mobile', 'Home', 'Work', 'Other'],
+    ),
     QrField(id: 'email', label: 'Email Address', validate: validateEmail),
+    QrField(
+      id: 'email_type',
+      label: 'Email Type',
+      type: QrFieldType.dropdown,
+      options: ['Home', 'Work', 'Other'],
+    ),
     QrField(id: 'url', label: 'Website', validate: validateUrl),
     ...addressFields,
   ];
@@ -55,10 +67,16 @@ class VCardFormat extends QrFormat {
     ]) {
       final value = values[id] ?? '';
       if (value.isEmpty) continue;
+      final type = switch ((tag, values['${id}_type'])) {
+        ('TEL', 'Mobile') => ';TYPE=CELL',
+        ('TEL' || 'EMAIL', 'Home') => ';TYPE=HOME',
+        ('TEL' || 'EMAIL', 'Work') => ';TYPE=WORK',
+        _ => '',
+      };
       // TEL is not escaped: it is a phone number, not text, so a reader takes it
       // as it stands, and validatePhone keeps out everything but digits and
       // dialling marks. Escaping the `,` of a pause would leave a backslash in it.
-      lines.add('$tag:${tag == 'TEL' ? value.trim() : _escape(value)}');
+      lines.add('$tag$type:${tag == 'TEL' ? value.trim() : _escape(value)}');
     }
 
     // ADR: has seven components: post office box, extended address, then the

@@ -55,17 +55,13 @@ void main() {
       );
     });
 
-    test('a phone pause stays as typed; a wait is escaped', () {
+    test('a phone pause stays as typed', () {
       expect(
         format.buildQrString({
           'first_name': 'Ada',
           'phone': '+15145550000,274',
         }),
         contains('TEL:+15145550000,274;'),
-      );
-      expect(
-        format.buildQrString({'first_name': 'Ada', 'phone': '5550000;1'}),
-        contains(r'TEL:5550000\;1;'),
       );
     });
 

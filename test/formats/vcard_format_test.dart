@@ -119,10 +119,41 @@ END:VCARD''');
         );
       });
 
-      test('a phone number keeps its pauses and waits unescaped', () {
+      test('a phone number keeps its pause unescaped', () {
         expect(
-          format.buildQrString({'phone': '+15145550000,274;1'}),
-          contains('TEL:+15145550000,274;1\n'),
+          format.buildQrString({'phone': '+15145550000,274'}),
+          contains('TEL:+15145550000,274\n'),
+        );
+      });
+
+      test('the phone and email types become TYPE= parameters', () {
+        for (final (choice, expected) in [
+          ('Mobile', 'TEL;TYPE=CELL:5550000'),
+          ('Home', 'TEL;TYPE=HOME:5550000'),
+          ('Work', 'TEL;TYPE=WORK:5550000'),
+          ('Other', 'TEL:5550000'),
+        ]) {
+          expect(
+            format.buildQrString({'phone': '5550000', 'phone_type': choice}),
+            contains(expected),
+          );
+        }
+        for (final (choice, expected) in [
+          ('Home', 'EMAIL;TYPE=HOME:a@x.io'),
+          ('Work', 'EMAIL;TYPE=WORK:a@x.io'),
+          ('Other', 'EMAIL:a@x.io'),
+        ]) {
+          expect(
+            format.buildQrString({'email': 'a@x.io', 'email_type': choice}),
+            contains(expected),
+          );
+        }
+      });
+
+      test('a type with no number or address adds nothing', () {
+        expect(
+          format.buildQrString({'phone_type': 'Work', 'email_type': 'Work'}),
+          isNot(contains('TYPE=')),
         );
       });
     });

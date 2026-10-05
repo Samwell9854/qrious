@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -74,6 +75,44 @@ void main() {
       );
     }
   });
+
+  for (final size in [const Size(1280, 800), const Size(1000, 700)]) {
+    testWidgets('Tab reaches the last field before the panel at $size', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(const QriousApp());
+
+      // MeCard: enough fields that some sit level with the panel's dropdowns,
+      // which is where ordering by position alone zigzags between the sides.
+      await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Contact (MeCard, compact)').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextFormField, 'First Name'));
+      await tester.pump();
+
+      for (var i = 0; i < 20; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        final focused = FocusManager.instance.primaryFocus!.context!;
+        final label = focused
+            .findAncestorWidgetOfExactType<TextField>()
+            ?.decoration
+            ?.labelText;
+        if (label == 'Country') return;
+        final box = focused.findRenderObject()! as RenderBox;
+        expect(
+          box.localToGlobal(Offset.zero).dx,
+          lessThan(24 + 380),
+          reason: 'Tab reached the panel before the last field',
+        );
+      }
+      fail('Tab never reached the last field');
+    });
+  }
 
   testWidgets('switching format rebuilds the form and clears values', (
     WidgetTester tester,

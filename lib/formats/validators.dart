@@ -17,10 +17,11 @@ import 'dart:convert';
 // server would accept. Anything stricter starts refusing addresses that work.
 final RegExp _email = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
-// Besides the separators people type, `,` (pause) and `;` (wait) let a number
-// carry an extension or a menu choice, as in `+15145550000,274`, and `*` and `#`
-// are part of service codes like `*67`.
-final RegExp _phone = RegExp(r'^\+?[\d ().,;*#-]+$');
+// Besides the separators people type, `,` (a pause) lets a number carry an
+// extension, as in `+15145550000,274`, and `*` and `#` are part of service codes
+// like `*67`. Not `;` (a wait): it is the property separator in MeCard and the
+// parameter separator in a tel: URI, and generators drop it and what follows.
+final RegExp _phone = RegExp(r'^\+?[\d ().,*#-]+$');
 
 final RegExp _digit = RegExp(r'\d');
 
@@ -42,7 +43,7 @@ String? validateUrl(String value) {
 String? validatePhone(String value) {
   final trimmed = value.trim();
   if (!_phone.hasMatch(trimmed)) {
-    return 'Use digits, spaces and + ( ) - , ; * # only';
+    return 'Use digits, spaces and + ( ) - , * # only';
   }
   if (_digit.allMatches(trimmed).length < 3) return 'That is too short';
   return null;

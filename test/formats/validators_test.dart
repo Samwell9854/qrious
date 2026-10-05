@@ -41,9 +41,8 @@ void main() {
       expect(validatePhone('5550000000'), isNull);
     });
 
-    test('accepts pauses, waits and service codes', () {
+    test('accepts pauses and service codes', () {
       expect(validatePhone('+15145550000,274'), isNull);
-      expect(validatePhone('5550000;1'), isNull);
       expect(validatePhone('*67 555 0000'), isNull);
       expect(validatePhone('#31#5550000'), isNull);
     });
@@ -51,6 +50,10 @@ void main() {
     test('rejects letters and too few digits', () {
       expect(validatePhone('555-CALL'), isNotNull);
       expect(validatePhone('12'), isNotNull);
+    });
+
+    test('rejects a wait, which MeCard and tel: read as a separator', () {
+      expect(validatePhone('+15145551234;274'), isNotNull);
     });
   });
 

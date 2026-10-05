@@ -169,28 +169,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildWideLayout() {
+    // Each column is its own focus group, so Tab finishes one side before it
+    // crosses to the other. Ordered by position alone, it would zigzag between
+    // the two wherever their fields happen to sit at the same height.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          width: 380,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildFormatPicker(),
-              const SizedBox(height: 20),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: _selectedFormat.fields.map(_buildField).toList(),
+        FocusTraversalGroup(
+          child: SizedBox(
+            width: 380,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFormatPicker(),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: _selectedFormat.fields
+                          .map(_buildField)
+                          .toList(),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 24),
-        Expanded(child: _buildQrPanel()),
+        Expanded(child: FocusTraversalGroup(child: _buildQrPanel())),
       ],
     );
   }
@@ -648,7 +655,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     child: SelectableText(
                       ready ? qrString : '—',
                       style: const TextStyle(
-                        fontFamily: 'monospace',
+                        // Named fonts before the generic family: on a system with
+                        // a Japanese font such as MS Gothic installed, "monospace"
+                        // can resolve to one that draws the backslash as a yen
+                        // sign, and a backslash is often part of the payload.
+                        fontFamily: 'Noto Sans Mono',
+                        fontFamilyFallback: [
+                          'DejaVu Sans Mono',
+                          'Liberation Mono',
+                          'monospace',
+                        ],
                         fontSize: 13,
                       ),
                     ),
