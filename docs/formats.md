@@ -107,4 +107,4 @@ Escaping rules differ per spec and belong inside the format class:
 
 The contract tests read `qrFormats` directly, so step 3 enrols the format in them; there is no second list to keep in step.
 
-No UI changes are needed — the screen imports the registry, not the formats. If a format genuinely needs a widget the five `QrFieldType` values cannot express, add the enum case *and* its branch in `_buildField`, plus its initial value in `_initControllers`; otherwise leave both alone.
+No UI changes are needed — the screen imports the registry, not the formats. If a format genuinely needs a widget the six `QrFieldType` values cannot express, add the enum case *and* its branch in `_buildField`, plus its initial value in `_loadForm` and its default in `_hasInput`; otherwise leave them alone.

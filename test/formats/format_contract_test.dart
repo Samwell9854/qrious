@@ -44,7 +44,7 @@ void main() {
         });
 
         test('builds a string from the home screen initial values', () {
-          // What _initControllers seeds the map with before any typing.
+          // What _loadForm seeds the map with before any typing.
           final values = {
             for (final f in format.fields)
               f.id: switch (f.type) {

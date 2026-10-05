@@ -61,10 +61,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _readPixelSize();
     _selectedFormat = qrFormats.first;
-    _initControllers();
+    _loadForm();
   }
 
-  void _initControllers() {
+  /// What each format held when the user last left it, for this session only.
+  /// Switching back restores it, so picking the wrong format by mistake costs
+  /// nothing; closing the app forgets it.
+  final Map<String, Map<String, String>> _saved = {};
+
+  /// Rebuilds the form for `_selectedFormat` from [saved], or empty without it.
+  void _loadForm([Map<String, String>? saved]) {
     for (final c in _controllers.values) {
       c.dispose();
     }
@@ -72,18 +78,84 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _values.clear();
     _revealed.clear();
 
+    String savedOr(String key, String fallback) => saved?[key] ?? fallback;
+
     for (final field in _selectedFormat.fields) {
       switch (field.type) {
         case QrFieldType.dropdown:
-          _values[field.id] = field.options!.first;
+          _values[field.id] = savedOr(field.id, field.options!.first);
         case QrFieldType.checkbox:
-          _values[field.id] = 'false';
+          _values[field.id] = savedOr(field.id, 'false');
         case QrFieldType.group:
-          _values[field.id] = '0';
+          final count = int.tryParse(savedOr(field.id, '0')) ?? 0;
+          _values[field.id] = '$count';
+          for (var i = 0; i < count; i++) {
+            for (final part in field.parts!) {
+              final key = QrEntries.part(field.id, i, part.id);
+              _attachController(key, savedOr(key, ''));
+            }
+            if (field.kinds != null) {
+              final key = QrEntries.kind(field.id, i);
+              _values[key] = savedOr(key, field.kinds!.first.value);
+            }
+          }
         default:
-          _attachController(field.id, '');
+          _attachController(field.id, savedOr(field.id, ''));
       }
     }
+  }
+
+  /// Whether anything differs from a freshly opened form.
+  bool get _hasInput {
+    for (final field in _selectedFormat.fields) {
+      final value = _values[field.id] ?? '';
+      final changed = switch (field.type) {
+        QrFieldType.dropdown => value != field.options!.first,
+        QrFieldType.checkbox => value != 'false',
+        QrFieldType.group => value != '0',
+        _ => value.isNotEmpty,
+      };
+      if (changed) return true;
+    }
+    return false;
+  }
+
+  /// What the current format held before its last Clear, for Undo and Ctrl+Z.
+  /// Forgotten on a format switch.
+  Map<String, String>? _beforeClear;
+
+  /// The focus node the Ctrl+Z shortcut listens under.
+  final FocusNode _screenFocus = FocusNode(debugLabel: 'HomeScreen');
+
+  /// Empties the current format's form, with a way to take it back.
+  void _clearForm() {
+    _beforeClear = Map.of(_values);
+    setState(_loadForm);
+    // The field that had focus goes with the Clear, and clicking a button or
+    // empty space focuses nothing, so the key would reach no shortcut here.
+    _screenFocus.requestFocus();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('Form cleared'),
+          // A snackbar with an action stays until dismissed by default; this one
+          // times out, and Ctrl+Z stays available after it does.
+          persist: false,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(label: 'Undo', onPressed: _undoClear),
+        ),
+      );
+  }
+
+  /// Brings back what the last Clear removed, as long as nothing has been
+  /// typed since: restoring over new input would lose that instead.
+  void _undoClear() {
+    final before = _beforeClear;
+    if (before == null || _hasInput) return;
+    _beforeClear = null;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    setState(() => _loadForm(before));
   }
 
   /// A controller for the text at [key], writing every change back to `_values`.
@@ -161,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _screenFocus.dispose();
     for (final c in _controllers.values) {
       c.dispose();
     }
@@ -212,6 +285,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Ctrl+Z undoes the last Clear. The action reports itself disabled whenever
+    // there is nothing to undo, which lets the key go on to a text field's own
+    // undo instead of being swallowed here.
+    return Shortcuts(
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+            _UndoClearIntent(),
+      },
+      child: Actions(
+        actions: {
+          _UndoClearIntent: _UndoClearAction(
+            canUndo: () => _beforeClear != null && !_hasInput,
+            undo: _undoClear,
+          ),
+        },
+        child: Focus(
+          focusNode: _screenFocus,
+          autofocus: true,
+          child: _buildScaffold(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScaffold() {
     return Scaffold(
       appBar: AppBar(title: const AppTitle(), centerTitle: false),
       body: SafeArea(
@@ -244,7 +342,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFormatPicker(),
+                _buildFormatRow(),
                 const SizedBox(height: 8),
                 Expanded(
                   child: SingleChildScrollView(
@@ -277,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildFormatPicker(),
+          _buildFormatRow(),
           const SizedBox(height: 20),
           ..._selectedFormat.fields.map(_buildField),
           const SizedBox(height: 8),
@@ -287,13 +385,66 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// The format picker, with the button that clears what it holds beside it.
+  Widget _buildFormatRow() {
+    return Row(
+      children: [
+        Expanded(child: _buildFormatPicker()),
+        const SizedBox(width: 8),
+        // A word rather than an icon: no icon says "empty this form" plainly.
+        TextButton(
+          onPressed: _hasInput ? _clearForm : null,
+          child: const Text('Clear'),
+        ),
+      ],
+    );
+  }
+
   Widget _buildFormatPicker() {
+    final colors = Theme.of(context).colorScheme;
+    // Filled rather than outlined like the fields below it: it decides what those
+    // fields are, and should not pass for one of them. The same quiet fill as the
+    // payload box, with the emphasis on the icon and the name rather than on a
+    // strong background.
     return DropdownButtonFormField<QrFormat>(
       initialValue: _selectedFormat,
       isExpanded: true,
-      decoration: const InputDecoration(
+      // Only the chosen format is emphasised; the open menu stays plain.
+      selectedItemBuilder: (context) => [
+        for (final f in qrFormats)
+          Row(
+            children: [
+              Icon(f.icon, size: 20, color: colors.primary),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  f.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
+      iconEnabledColor: colors.onSurfaceVariant,
+      dropdownColor: colors.surfaceContainerHigh,
+      decoration: InputDecoration(
         labelText: 'Format',
-        border: OutlineInputBorder(),
+        // Full text colour rather than the dimmer label default, which reads as
+        // low contrast on the filled background.
+        floatingLabelStyle: TextStyle(
+          color: colors.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        filled: true,
+        fillColor: colors.surfaceContainerHighest,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
       ),
       items: qrFormats
           .map(
@@ -314,8 +465,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       onChanged: (format) {
         if (format == null) return;
         setState(() {
+          _beforeClear = null;
+          _saved[_selectedFormat.id] = Map.of(_values);
           _selectedFormat = format;
-          _initControllers();
+          _loadForm(_saved[format.id]);
         });
       },
     );
@@ -981,4 +1134,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ],
     );
   }
+}
+
+class _UndoClearIntent extends Intent {
+  const _UndoClearIntent();
+}
+
+class _UndoClearAction extends Action<_UndoClearIntent> {
+  _UndoClearAction({required this.canUndo, required this.undo});
+
+  final bool Function() canUndo;
+  final VoidCallback undo;
+
+  @override
+  bool isEnabled(_UndoClearIntent intent) => canUndo();
+
+  @override
+  void invoke(_UndoClearIntent intent) => undo();
 }

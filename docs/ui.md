@@ -10,7 +10,18 @@ Everything lives in [lib/screens/home_screen.dart](../lib/screens/home_screen.da
 - `_controllers` — `TextEditingController` per *text-like* field only (dropdown and checkbox fields have no controller).
 - `_errorCorrection` and `_imageSize` — the output choices under the preview, `auto` and `medium` to start. A format switch keeps them: they describe the output, not the content.
 
-`_initControllers()` is the reset point: it disposes old controllers, clears both maps, then seeds each field's initial value and attaches a listener that writes controller text back into `_values` and calls `setState`. It runs in `initState` and again on every format switch — a format change discards all entered values by design.
+`_loadForm([saved])` is the reset point: it disposes old controllers, clears both maps, then seeds each field from `saved`, or with its initial value without it, and attaches a listener that writes controller text back into `_values` and calls `setState`. It runs in `initState` and on every format switch.
+
+A format switch first copies `_values` into `_saved` under the old format's id, then loads the new format from whatever `_saved` holds for it. So each format remembers its values for the session, and picking the wrong format by mistake costs nothing: switching back restores the form. Nothing is written to disk; closing the app forgets it all.
+
+The **Clear** button beside the picker (`_buildFormatRow`) empties the current format only, and is enabled only while `_hasInput` says something differs from a fresh form. It is a word, not an icon: no icon says "empty this form" plainly (`clear_all` was tried, and is known only from Android's notification shade). It asks nothing first, because a confirmation would add a click to every deliberate clear; instead it keeps the snapshot in `_beforeClear` and offers two ways back:
+
+- *Undo* in the snackbar. A snackbar with an action stays until dismissed by default, so this one sets `persist: false` and leaves after five seconds.
+- **Ctrl+Z**, through a `Shortcuts`/`Actions` pair around the scaffold. Clear hands focus to the screen's own node: the field that had focus goes with the Clear, and a click on a button or on empty space focuses nothing, so the key would otherwise reach no shortcut here. The action is enabled only while there is a Clear to undo and the form is still empty; otherwise it reports itself disabled and the key goes on to a focused text field's own undo, which a `CallbackShortcuts` would have swallowed.
+
+Either way, an undo is refused once something has been typed since the Clear, since restoring would lose that input instead. A format switch forgets the snapshot.
+
+The picker itself is filled, unlike the outlined fields under it, because it decides what those fields are and should not pass for one of them. The fill is the same quiet `surfaceContainerHighest` as the payload box, and the emphasis is on the format's icon, in the primary colour, and its name in bold; the open menu stays plain.
 
 `dispose()` disposes the controllers; anything added to `_controllers` must be disposable there.
 
@@ -36,7 +47,7 @@ Each column is wrapped in its own `FocusTraversalGroup`, so Tab runs through eve
 
 Fields themselves are dispatched on `field.type` by `_buildField` via a `switch` expression (`_` falls through to a plain `TextFormField`, with a `*` suffix when required). A `group` field goes to `_buildGroup` instead: its entries, then an *Add* button. `_addEntry` and `_removeEntry` keep the count and the entry keys in `_values` and a controller per text part in `_controllers`; removing rebuilds the group's controllers from its values, since each controller is bound to its key. A one-part entry is a single field with the kind as a `PopupMenuButton` in its `prefixIcon` and a remove button as its `suffixIcon`. A many-part entry is a hand-drawn box: a rounded outline with the legend (the kind menu) laid over its top edge on the scaffold background, which reads as a notch. `InputDecorator` would draw that notch itself, but its label never receives a tap, so the legend could not open its menu.
 
-A multiline field starts at four lines and grows with its text up to twelve, then scrolls. A password field has an eye button to show it in the clear; which ones are shown lives in `_revealed`, cleared with everything else on a format switch. Single-line fields stay single-line however long the text, and scroll sideways with the cursor, as in every other app. `_buildField` computes the error once and passes it as `errorText` to each text-bearing branch; dropdowns and checkboxes cannot hold a bad value, so they have none.
+A multiline field starts at four lines and grows with its text up to twelve, then scrolls. A password field has an eye button to show it in the clear; which ones are shown lives in `_revealed`, cleared with everything else on a format switch, so a password is hidden again when its format comes back. Single-line fields stay single-line however long the text, and scroll sideways with the cursor, as in every other app. `_buildField` computes the error once and passes it as `errorText` to each text-bearing branch; dropdowns and checkboxes cannot hold a bad value, so they have none.
 
 An `errorText` grows the field by a line, and that has to hold at 390px as well as on the desktop — [test/field_validation_test.dart](../test/field_validation_test.dart) fills a vCard with every validated field wrong at once to keep the narrow layout honest.
 

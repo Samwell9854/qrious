@@ -136,7 +136,7 @@ void main() {
     expect(label.top, greaterThanOrEqualTo(viewport.top));
   });
 
-  testWidgets('switching format rebuilds the form and clears values', (
+  testWidgets('switching format rebuilds the form for the new format', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const QriousApp());
