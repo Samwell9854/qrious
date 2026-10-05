@@ -245,9 +245,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildFormatPicker(),
-                const SizedBox(height: 20),
+                const SizedBox(height: 8),
                 Expanded(
                   child: SingleChildScrollView(
+                    // Most of the gap below the picker sits inside the scroll
+                    // view: a field's floating label rises above its border, and
+                    // the first field's would otherwise be clipped at the top.
+                    padding: const EdgeInsets.only(top: 12),
                     child: Column(
                       children: _selectedFormat.fields
                           .map(_buildField)

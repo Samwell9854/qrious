@@ -114,6 +114,28 @@ void main() {
     });
   }
 
+  testWidgets('the first field\'s floating label is not clipped', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const QriousApp());
+
+    final field = find.widgetWithText(TextFormField, 'Network Name (SSID)');
+    await tester.enterText(field, 'MyNetwork');
+    await tester.pumpAndSettle();
+
+    // The fields scroll inside their own viewport, which clips at its top edge.
+    final viewport = tester.getRect(
+      find.ancestor(of: field, matching: find.byType(Scrollable)).first,
+    );
+    final label = tester.getRect(
+      find.descendant(of: field, matching: find.text('Network Name (SSID)')),
+    );
+    expect(label.top, greaterThanOrEqualTo(viewport.top));
+  });
+
   testWidgets('switching format rebuilds the form and clears values', (
     WidgetTester tester,
   ) async {
