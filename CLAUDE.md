@@ -2,7 +2,7 @@
 
 Flutter app that generates QR codes from structured input. Pick a format (WiFi, vCard, URL, …), fill in its fields, and a QR code plus the raw encoded string render live as you type.
 
-- Flutter 3.41 stable / Dart SDK `^3.11.5`
+- Flutter 3.47 stable / Dart SDK `^3.11.5`
 - The only platform scaffolded so far is **Linux** (`linux/`). iOS is on indefinite hold — see Known rough edges.
 - Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing).
 
