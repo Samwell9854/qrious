@@ -19,14 +19,14 @@ class GeoFormat extends QrFormat {
       id: 'latitude',
       label: 'Latitude',
       required: true,
-      hint: '45.5017',
+      hint: '48.8584',
       validate: validateLatitude,
     ),
     QrField(
       id: 'longitude',
       label: 'Longitude',
       required: true,
-      hint: '-73.5673',
+      hint: '2.2945',
       validate: validateLongitude,
     ),
   ];
@@ -45,7 +45,7 @@ class GeoFormat extends QrFormat {
 
   static String? _validateDegrees(String value, double limit, String message) {
     final trimmed = value.trim();
-    if (!_degrees.hasMatch(trimmed)) return 'Use decimal degrees, like 45.5017';
+    if (!_degrees.hasMatch(trimmed)) return 'Use decimal degrees, like 48.8584';
     return double.parse(trimmed).abs() > limit ? message : null;
   }
 

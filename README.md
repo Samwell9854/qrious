@@ -20,7 +20,7 @@ Each [GitHub release](https://github.com/Samwell9854/qrious/releases) also carri
 | --- | --- |
 | Wi-Fi | `WIFI:` network credentials (WPA/WPA2, WEP, or open; hidden networks supported) |
 | Contact (vCard) | vCard 3.0 |
-| Contact (MeCard) | `MECARD:`, a more compact contact card |
+| Contact (MeCard, compact) | `MECARD:`, a more compact contact card |
 | URL / Website | the URL as-is |
 | Email | `mailto:` with optional subject and body |
 | Phone Number | `tel:` |

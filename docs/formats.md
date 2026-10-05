@@ -55,7 +55,9 @@ A validator returns the message to show under the field, or null when the value 
 
 The shared rules live in [lib/formats/validators.dart](../lib/formats/validators.dart) — `validateEmail`, `validateUrl`, `validatePhone`, `validateSsid` — because a vCard carries an email, a URL and a phone number, and they are the same things the dedicated formats encode. A rule that only one format could want belongs in that format as a `static` method instead.
 
-They are deliberately loose. A validator's job is to reject what a scanner cannot use, not to enforce a spec: `validateEmail` accepts anything with an `@` and a dotted domain, since stricter patterns start refusing addresses that work. `validateUrl` is the one real judgement call — it insists on a scheme, because a bare `example.com` encodes as a scheme-less string and readers disagree about what to do with it.
+They are deliberately loose. A validator's job is to reject what a scanner cannot use, not to enforce a spec: `validateEmail` accepts anything with an `@` and a dotted domain, since stricter patterns start refusing addresses that work. `validateUrl` is the one real judgement call — it insists on a scheme, because a bare `example.com` encodes as a scheme-less string and readers disagree about what to do with it. `validatePhone` lets through the dialling marks as well as the separators: `,` (pause) and `;` (wait) for an extension like `+15145550000,274`, and `*` and `#` for service codes.
+
+Both contact formats take the address as separate parts, from the shared `addressFields` in [lib/formats/address.dart](../lib/formats/address.dart): street, city, province or state, postal code, country. Each fills its own slot of `ADR`. A single free-text address put the whole thing in the street slot and left the phone to guess where the city began, which it got wrong on a hyphenated street name.
 
 ## Supported formats
 
@@ -63,7 +65,7 @@ They are deliberately loose. A validator's job is to reject what a scanner canno
 | --- | --- | --- |
 | `wifi` | [WifiFormat](../lib/formats/wifi_format.dart) | `WIFI:T:<WPA\|WEP\|nopass>;S:<ssid>;P:<pass>;H:<bool>;;` |
 | `vcard` | [VCardFormat](../lib/formats/vcard_format.dart) | vCard 3.0, newline-joined, optional lines omitted when empty |
-| `mecard` | [MeCardFormat](../lib/formats/mecard_format.dart) | `MECARD:N:<last>,<first>;TEL:…;EMAIL:…;URL:…;ADR:…;;`, optional properties omitted when empty |
+| `mecard` | [MeCardFormat](../lib/formats/mecard_format.dart) | `MECARD:N:<last>,<first>;TEL:…;EMAIL:…;URL:…;ADR:,,<street>,<city>,<region>,<postal code>,<country>;;`, optional properties omitted when empty |
 | `url` | [UrlFormat](../lib/formats/url_format.dart) | the raw URL |
 | `email` | [EmailFormat](../lib/formats/email_format.dart) | `mailto:` with URI-encoded `subject`/`body`, `@` and `+` left literal in the address |
 | `phone` | [PhoneFormat](../lib/formats/phone_format.dart) | `tel:<number>` |
@@ -74,10 +76,10 @@ They are deliberately loose. A validator's job is to reject what a scanner canno
 Escaping rules differ per spec and belong inside the format class:
 - Wi-Fi escapes `\ ; , " :` with a backslash (`WifiFormat._escape`).
 - Email uses `Uri.encodeComponent` on the address and each query param, then restores `@` and `+` in the address — RFC 6068 allows both there, and `%2B` breaks plus-addressing in some clients. The query params keep the full encoding, where `+` can be read as a space.
-- MeCard backslash-escapes `\ ; : ,` and turns line breaks into spaces, since it has no escape for one. It carries no organisation or job title, which is the price of its smaller code.
+- MeCard backslash-escapes `\` and `;` in every value, `,` only inside `N:` and `ADR:` where it separates components, and turns line breaks into spaces, since it has no escape for one. The spec escapes `:` and every `,` too, but a phone reader that does not undo it turned `https://` into `https\://` in testing, and neither is ambiguous where it is left alone. MeCard carries no organisation or job title, which is the price of its smaller code.
 - SMS escapes nothing: a reader splits at the first colon after the number, which cannot hold one.
 - Location validates instead of escaping: decimal degrees with a point, within ±90 and ±180, which is all `geo:` accepts.
-- vCard emits `N:` and `FN:` lines; the rest are conditional. Every value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a multiline address from ending its own property.
+- vCard emits `N:` and `FN:` lines; the rest are conditional. Every text value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a pasted line break from ending its own property. `TEL` is not text and is left as typed, so a pause's `,` does not arrive with a backslash in front of it.
 
 ## Adding a format
 

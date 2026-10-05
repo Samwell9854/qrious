@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' show Icons, IconData;
 
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import 'address.dart';
 import 'validators.dart';
 
 class VCardFormat extends QrFormat {
@@ -28,7 +29,7 @@ class VCardFormat extends QrFormat {
     ),
     QrField(id: 'email', label: 'Email Address', validate: validateEmail),
     QrField(id: 'url', label: 'Website', validate: validateUrl),
-    QrField(id: 'address', label: 'Address', type: QrFieldType.multiline),
+    ...addressFields,
   ];
 
   @override
@@ -53,12 +54,17 @@ class VCardFormat extends QrFormat {
       ('URL', 'url'),
     ]) {
       final value = values[id] ?? '';
-      if (value.isNotEmpty) lines.add('$tag:${_escape(value)}');
+      if (value.isEmpty) continue;
+      // TEL is not escaped: it is a phone number, not text, so a reader takes it
+      // as it stands, and validatePhone keeps out everything but digits and
+      // dialling marks. Escaping the `,` of a pause would leave a backslash in it.
+      lines.add('$tag:${tag == 'TEL' ? value.trim() : _escape(value)}');
     }
 
-    // ADR: has seven components; the address goes in the third, the street.
-    final address = values['address'] ?? '';
-    if (address.isNotEmpty) lines.add('ADR:;;${_escape(address)};;;;');
+    // ADR: has seven components: post office box, extended address, then the
+    // five the form asks for.
+    final address = addressParts(values);
+    if (address != null) lines.add('ADR:;;${address.map(_escape).join(';')}');
 
     lines.add('END:VCARD');
     return lines.join('\n');
@@ -67,9 +73,8 @@ class VCardFormat extends QrFormat {
   /// Escapes a vCard text value per RFC 2426 section 5: backslash, semicolon and
   /// comma are backslash-escaped, and a line break becomes a literal `\n`.
   ///
-  /// The line break matters most here. `address` is a multiline field, so a user
-  /// pressing Enter would otherwise put a raw newline inside the value, and a
-  /// newline is what ends a vCard property — the rest of the address would parse
+  /// The line break matters most here. A pasted value can carry a raw newline, and
+  /// a newline is what ends a vCard property — the rest of the value would parse
   /// as a malformed property of its own and the card would be rejected.
   ///
   /// Backslash is replaced first, otherwise it would escape the backslashes the

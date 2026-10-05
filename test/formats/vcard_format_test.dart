@@ -59,7 +59,11 @@ void main() {
           'phone': '',
           'email': '',
           'url': '',
-          'address': '',
+          'street': '',
+          'city': '',
+          'region': '',
+          'postal_code': '',
+          'country': '',
         });
         expect(
           payload,
@@ -76,7 +80,10 @@ void main() {
           'phone': '+15550000000',
           'email': 'ada@example.com',
           'url': 'https://example.com',
-          'address': '12 Baker St',
+          'street': '12 Baker St',
+          'city': 'London',
+          'postal_code': 'NW1 6XE',
+          'country': 'UK',
         });
         expect(payload, '''
 BEGIN:VCARD
@@ -88,14 +95,34 @@ TITLE:Mathematician
 TEL:+15550000000
 EMAIL:ada@example.com
 URL:https://example.com
-ADR:;;12 Baker St;;;;
+ADR:;;12 Baker St;London;;NW1 6XE;UK
 END:VCARD''');
       });
 
-      test('the address sits in the street slot of ADR:', () {
+      test('each address part fills its own ADR: slot', () {
         expect(
-          format.buildQrString({'address': '12 Baker St'}),
-          contains('ADR:;;12 Baker St;;;;'),
+          format.buildQrString({
+            'street': '10011 Renaude-Lapointe',
+            'city': 'Anjou',
+            'region': 'QC',
+            'postal_code': 'H1H 1H1',
+            'country': 'Canada',
+          }),
+          contains('ADR:;;10011 Renaude-Lapointe;Anjou;QC;H1H 1H1;Canada'),
+        );
+      });
+
+      test('a city alone still makes an ADR:', () {
+        expect(
+          format.buildQrString({'city': 'Anjou'}),
+          contains('ADR:;;;Anjou;;;'),
+        );
+      });
+
+      test('a phone number keeps its pauses and waits unescaped', () {
+        expect(
+          format.buildQrString({'phone': '+15145550000,274;1'}),
+          contains('TEL:+15145550000,274;1\n'),
         );
       });
     });
@@ -109,19 +136,24 @@ END:VCARD''');
         expect(lines, contains(r'FN:Ada Lovelace\; Jr'));
       });
 
-      test('a newline in the address stays inside the ADR: property', () {
-        final payload = format.buildQrString({
-          'address': '12 Baker St\nLondon',
-        });
-        expect(payload, contains(r'ADR:;;12 Baker St\nLondon;;;;'));
+      test('a pasted newline stays inside the ADR: property', () {
+        final payload = format.buildQrString({'street': '12 Baker St\nFlat 2'});
+        expect(payload, contains(r'ADR:;;12 Baker St\nFlat 2;;;;'));
         // BEGIN, VERSION, N, FN, ADR, END — a raw newline would add a seventh.
         expect(payload.split('\n'), hasLength(6));
       });
 
       test('a carriage return or CRLF also becomes a literal \\n', () {
         expect(
-          format.buildQrString({'address': 'a\r\nb\rc'}),
+          format.buildQrString({'street': 'a\r\nb\rc'}),
           contains(r'ADR:;;a\nb\nc;;;;'),
+        );
+      });
+
+      test('a semicolon inside an address part does not split ADR:', () {
+        expect(
+          format.buildQrString({'street': 'Unit 4; Rear'}),
+          contains(r'ADR:;;Unit 4\; Rear;;;;'),
         );
       });
 
