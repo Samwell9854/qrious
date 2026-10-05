@@ -76,7 +76,9 @@ void main() {
     expect(find.byType(QrImageView), findsOneWidget);
 
     // Email is optional here, but a wrong one would still be encoded.
-    await type(tester, 'Email Address', 'not-an-address');
+    await tester.tap(find.text('Add email'));
+    await tester.pump();
+    await type(tester, 'Email · Home', 'not-an-address');
     expect(find.byType(QrImageView), findsNothing);
   });
 
@@ -105,8 +107,13 @@ void main() {
 
     // Every validated field wrong at once: the tallest the form can get.
     await type(tester, 'First Name', 'Ada');
-    await type(tester, 'Phone Number', 'nope');
-    await type(tester, 'Email Address', 'nope');
+    for (final add in ['Add phone', 'Add email']) {
+      await tester.ensureVisible(find.text(add));
+      await tester.tap(find.text(add));
+      await tester.pump();
+    }
+    await type(tester, 'Phone · Mobile', 'nope');
+    await type(tester, 'Email · Home', 'nope');
     await type(tester, 'Website', 'nope');
     await tester.pumpAndSettle();
 

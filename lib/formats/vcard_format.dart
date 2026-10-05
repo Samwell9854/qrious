@@ -15,33 +15,63 @@ class VCardFormat extends QrFormat {
   @override
   IconData get icon => Icons.contact_page_outlined;
 
+  // Phones, emails and addresses are groups: none to start with, as many as the
+  // user adds, each labelled with a kind that becomes a TYPE= parameter. The
+  // kinds are the beginner set from RFC 2426; an empty value means no TYPE.
+  static const _phones = QrField(
+    id: 'phones',
+    label: 'Phone',
+    type: QrFieldType.group,
+    parts: [
+      QrField(
+        id: 'number',
+        label: 'Phone',
+        hint: '+1 555 000 0000',
+        validate: validatePhoneWithWait,
+      ),
+    ],
+    kinds: [
+      QrKind('CELL', 'Mobile', Icons.smartphone),
+      QrKind('HOME', 'Home', Icons.home_outlined),
+      QrKind('WORK', 'Work', Icons.work_outline),
+      QrKind('FAX', 'Fax', Icons.fax_outlined),
+      QrKind('', 'Other', Icons.phone_outlined),
+    ],
+  );
+
+  static const _emails = QrField(
+    id: 'emails',
+    label: 'Email',
+    type: QrFieldType.group,
+    parts: [QrField(id: 'address', label: 'Email', validate: validateEmail)],
+    kinds: [
+      QrKind('HOME', 'Home', Icons.home_outlined),
+      QrKind('WORK', 'Work', Icons.work_outline),
+      QrKind('', 'Other', Icons.alternate_email),
+    ],
+  );
+
+  static const _addresses = QrField(
+    id: 'addresses',
+    label: 'Address',
+    type: QrFieldType.group,
+    parts: addressFields,
+    kinds: [
+      QrKind('HOME', 'Home', Icons.home_outlined),
+      QrKind('WORK', 'Work', Icons.work_outline),
+    ],
+  );
+
   @override
   List<QrField> get fields => const [
     QrField(id: 'first_name', label: 'First Name', required: true),
     QrField(id: 'last_name', label: 'Last Name'),
     QrField(id: 'org', label: 'Organization'),
     QrField(id: 'title', label: 'Job Title'),
-    QrField(
-      id: 'phone',
-      label: 'Phone Number',
-      hint: '+1 555 000 0000',
-      validate: validatePhone,
-    ),
-    QrField(
-      id: 'phone_type',
-      label: 'Phone Type',
-      type: QrFieldType.dropdown,
-      options: ['Mobile', 'Home', 'Work', 'Other'],
-    ),
-    QrField(id: 'email', label: 'Email Address', validate: validateEmail),
-    QrField(
-      id: 'email_type',
-      label: 'Email Type',
-      type: QrFieldType.dropdown,
-      options: ['Home', 'Work', 'Other'],
-    ),
+    _phones,
+    _emails,
     QrField(id: 'url', label: 'Website', validate: validateUrl),
-    ...addressFields,
+    _addresses,
   ];
 
   @override
@@ -58,35 +88,44 @@ class VCardFormat extends QrFormat {
       'FN:${_escape(fullName)}',
     ];
 
-    for (final (tag, id) in const [
-      ('ORG', 'org'),
-      ('TITLE', 'title'),
-      ('TEL', 'phone'),
-      ('EMAIL', 'email'),
-      ('URL', 'url'),
-    ]) {
+    for (final (tag, id) in const [('ORG', 'org'), ('TITLE', 'title')]) {
       final value = values[id] ?? '';
-      if (value.isEmpty) continue;
-      final type = switch ((tag, values['${id}_type'])) {
-        ('TEL', 'Mobile') => ';TYPE=CELL',
-        ('TEL' || 'EMAIL', 'Home') => ';TYPE=HOME',
-        ('TEL' || 'EMAIL', 'Work') => ';TYPE=WORK',
-        _ => '',
-      };
-      // TEL is not escaped: it is a phone number, not text, so a reader takes it
-      // as it stands, and validatePhone keeps out everything but digits and
-      // dialling marks. Escaping the `,` of a pause would leave a backslash in it.
-      lines.add('$tag$type:${tag == 'TEL' ? value.trim() : _escape(value)}');
+      if (value.isNotEmpty) lines.add('$tag:${_escape(value)}');
     }
+
+    // TEL is not escaped: it is a phone number, not text, so a reader takes it as
+    // it stands, and the validator keeps out everything but digits and dialling
+    // marks. Escaping the `,` of a pause would leave a backslash in it, and a
+    // vCard line ends at a line break, so a `;` wait is no separator here.
+    for (final phone in QrEntries.read(values, _phones)) {
+      final number = phone['number']!.trim();
+      if (number.isNotEmpty) lines.add('TEL${_type(phone)}:$number');
+    }
+
+    for (final email in QrEntries.read(values, _emails)) {
+      final address = email['address']!;
+      if (address.isEmpty) continue;
+      lines.add('EMAIL${_type(email)}:${_escape(address)}');
+    }
+
+    final url = values['url'] ?? '';
+    if (url.isNotEmpty) lines.add('URL:${_escape(url)}');
 
     // ADR: has seven components: post office box, extended address, then the
     // five the form asks for.
-    final address = addressParts(values);
-    if (address != null) lines.add('ADR:;;${address.map(_escape).join(';')}');
+    for (final address in QrEntries.read(values, _addresses)) {
+      final parts = [for (final f in addressFields) address[f.id]!];
+      if (parts.every((p) => p.isEmpty)) continue;
+      lines.add('ADR${_type(address)}:;;${parts.map(_escape).join(';')}');
+    }
 
     lines.add('END:VCARD');
     return lines.join('\n');
   }
+
+  /// The entry's kind as a TYPE= parameter, or nothing for a kind of no type.
+  static String _type(Map<String, String> entry) =>
+      entry['kind']!.isEmpty ? '' : ';TYPE=${entry['kind']}';
 
   /// Escapes a vCard text value per RFC 2426 section 5: backslash, semicolon and
   /// comma are backslash-escaped, and a line break becomes a literal `\n`.

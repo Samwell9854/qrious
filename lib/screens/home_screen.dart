@@ -78,15 +78,69 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _values[field.id] = field.options!.first;
         case QrFieldType.checkbox:
           _values[field.id] = 'false';
+        case QrFieldType.group:
+          _values[field.id] = '0';
         default:
-          _values[field.id] = '';
-          final controller = TextEditingController();
-          controller.addListener(() {
-            setState(() => _values[field.id] = controller.text);
-          });
-          _controllers[field.id] = controller;
+          _attachController(field.id, '');
       }
     }
+  }
+
+  /// A controller for the text at [key], writing every change back to `_values`.
+  void _attachController(String key, String text) {
+    _values[key] = text;
+    final controller = TextEditingController(text: text);
+    controller.addListener(() {
+      setState(() => _values[key] = controller.text);
+    });
+    _controllers[key] = controller;
+  }
+
+  /// Appends an entry to [group], of its first kind, with its parts empty.
+  void _addEntry(QrField group) {
+    setState(() {
+      final index = QrEntries.count(_values, group.id);
+      for (final part in group.parts!) {
+        _attachController(QrEntries.part(group.id, index, part.id), '');
+      }
+      if (group.kinds != null) {
+        _values[QrEntries.kind(group.id, index)] = group.kinds!.first.value;
+      }
+      _values[group.id] = '${index + 1}';
+    });
+  }
+
+  /// Removes entry [index] of [group], moving the ones after it up a place.
+  ///
+  /// The entries are rebuilt from their values rather than shuffled key by key:
+  /// each controller is bound to its key, so the simplest correct move is to drop
+  /// the group's controllers and attach fresh ones in the new positions.
+  void _removeEntry(QrField group, int index) {
+    setState(() {
+      final entries = QrEntries.read(_values, group)..removeAt(index);
+      final count = QrEntries.count(_values, group.id);
+      for (var i = 0; i < count; i++) {
+        for (final part in group.parts!) {
+          final key = QrEntries.part(group.id, i, part.id);
+          _controllers.remove(key)?.dispose();
+          _values.remove(key);
+          _revealed.remove(key);
+        }
+        _values.remove(QrEntries.kind(group.id, i));
+      }
+      for (final (i, entry) in entries.indexed) {
+        for (final part in group.parts!) {
+          _attachController(
+            QrEntries.part(group.id, i, part.id),
+            entry[part.id]!,
+          );
+        }
+        if (group.kinds != null) {
+          _values[QrEntries.kind(group.id, i)] = entry['kind']!;
+        }
+      }
+      _values[group.id] = '${entries.length}';
+    });
   }
 
   /// Millimetres per logical pixel on the current monitor, or null until known
@@ -120,8 +174,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// An empty value is never an error here: `required` already covers "you have
   /// not filled this in", and a form that opens with every field flagged red is
   /// worse than one that waits until there is something to judge.
-  String? _errorFor(QrField field) {
-    final value = _values[field.id] ?? '';
+  String? _errorFor(QrField field, [String? key]) {
+    final value = _values[key ?? field.id] ?? '';
     if (value.isEmpty) return null;
     return field.validate?.call(value);
   }
@@ -138,6 +192,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   bool get _isReady {
     for (final field in _selectedFormat.fields) {
+      if (field.type == QrFieldType.group) {
+        for (var i = 0; i < QrEntries.count(_values, field.id); i++) {
+          for (final part in field.parts!) {
+            final key = QrEntries.part(field.id, i, part.id);
+            if (_errorFor(part, key) != null) return false;
+          }
+        }
+        continue;
+      }
       if (field.required && (_values[field.id] ?? '').isEmpty) return false;
       if (_errorFor(field) != null) return false;
     }
@@ -255,6 +318,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildField(QrField field) {
+    if (field.type == QrFieldType.group) return _buildGroup(field);
     final error = _errorFor(field);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -330,6 +394,204 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
       },
+    );
+  }
+
+  /// A group's entries, then a button to add another. Nothing but the button
+  /// until the user asks for an entry, so a contact with only a name stays short.
+  Widget _buildGroup(QrField group) {
+    final count = QrEntries.count(_values, group.id);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < count; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: group.parts!.length == 1
+                ? _buildSingleEntry(group, i)
+                : _buildBoxedEntry(group, i),
+          ),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: TextButton.icon(
+              onPressed: () => _addEntry(group),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('Add ${group.label.toLowerCase()}'),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The kind of entry [index] of [group], falling back to the first.
+  QrKind _kindOf(QrField group, int index) {
+    final value = _values[QrEntries.kind(group.id, index)];
+    return group.kinds!.firstWhere(
+      (k) => k.value == value,
+      orElse: () => group.kinds!.first,
+    );
+  }
+
+  /// A menu of [group]'s kinds, each shown as its icon and its word, as the
+  /// format picker shows formats. [child] is what opens it.
+  Widget _kindMenu(QrField group, int index, Widget child) {
+    return PopupMenuButton<String>(
+      tooltip: '${group.label} type',
+      initialValue: _kindOf(group, index).value,
+      onSelected: (value) =>
+          setState(() => _values[QrEntries.kind(group.id, index)] = value),
+      itemBuilder: (_) => [
+        for (final kind in group.kinds!)
+          PopupMenuItem(
+            value: kind.value,
+            child: Row(
+              children: [
+                Icon(kind.icon, size: 20),
+                const SizedBox(width: 12),
+                Text(kind.label),
+              ],
+            ),
+          ),
+      ],
+      child: child,
+    );
+  }
+
+  Widget _removeButton(QrField group, int index) => IconButton(
+    icon: const Icon(Icons.close, size: 18),
+    tooltip: 'Remove ${group.label.toLowerCase()}',
+    onPressed: () => _removeEntry(group, index),
+  );
+
+  /// One line: the kind as an icon inside the field, where it reads as part of
+  /// the value it labels, and named again in the label so it is never an icon
+  /// alone.
+  Widget _buildSingleEntry(QrField group, int index) {
+    final part = group.parts!.single;
+    final key = QrEntries.part(group.id, index, part.id);
+    final kind = group.kinds == null ? null : _kindOf(group, index);
+    return TextFormField(
+      controller: _controllers[key],
+      decoration: InputDecoration(
+        labelText: kind == null ? part.label : '${part.label} · ${kind.label}',
+        hintText: part.hint,
+        border: const OutlineInputBorder(),
+        errorText: _errorFor(part, key),
+        prefixIcon: kind == null
+            ? null
+            : _kindMenu(
+                group,
+                index,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(kind.icon, size: 20),
+                      const Icon(Icons.arrow_drop_down, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+        suffixIcon: _removeButton(group, index),
+      ),
+    );
+  }
+
+  /// Several parts boxed together, with the kind in a notch of the box's top
+  /// edge. Rounder than a field, and tighter inside than the form around it, so
+  /// the parts read as one entry and the entry as distinct from its neighbours.
+  Widget _buildBoxedEntry(QrField group, int index) {
+    final kind = group.kinds == null ? null : _kindOf(group, index);
+    final legend = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (kind == null)
+          Text(group.label)
+        else
+          _kindMenu(
+            group,
+            index,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(kind.icon, size: 18),
+                const SizedBox(width: 6),
+                Text('${group.label} · ${kind.label}'),
+                const Icon(Icons.arrow_drop_down, size: 18),
+              ],
+            ),
+          ),
+      ],
+    );
+    final colors = Theme.of(context).colorScheme;
+    // Drawn by hand rather than with an InputDecorator, whose label cannot take a
+    // tap. The legend sits over the box's top edge on the page's own background,
+    // which reads as a notch in the line, as a field's floating label does.
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: colors.outline),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 24, 12, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final part in group.parts!)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: TextFormField(
+                        controller:
+                            _controllers[QrEntries.part(
+                              group.id,
+                              index,
+                              part.id,
+                            )],
+                        decoration: InputDecoration(
+                          labelText: part.label,
+                          hintText: part.hint,
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          errorText: _errorFor(
+                            part,
+                            QrEntries.part(group.id, index, part.id),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: TextButton.icon(
+                      onPressed: () => _removeEntry(group, index),
+                      icon: const Icon(Icons.close, size: 18),
+                      label: Text('Remove ${group.label.toLowerCase()}'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        PositionedDirectional(
+          start: 12,
+          top: 0,
+          child: ColoredBox(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: SizedBox(height: 24, child: legend),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

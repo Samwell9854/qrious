@@ -1,6 +1,33 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qrious/formats/vcard_format.dart';
 
+/// Phone entries as the screen stores them: the count, then each entry's number
+/// and kind.
+Map<String, String> phones(List<(String, String)> entries) => {
+  'phones': '${entries.length}',
+  for (final (i, (number, kind)) in entries.indexed) ...{
+    'phones.$i.number': number,
+    'phones.$i.kind': kind,
+  },
+};
+
+Map<String, String> emails(List<(String, String)> entries) => {
+  'emails': '${entries.length}',
+  for (final (i, (address, kind)) in entries.indexed) ...{
+    'emails.$i.address': address,
+    'emails.$i.kind': kind,
+  },
+};
+
+Map<String, String> addresses(List<(Map<String, String>, String)> entries) => {
+  'addresses': '${entries.length}',
+  for (final (i, (parts, kind)) in entries.indexed) ...{
+    for (final MapEntry(:key, :value) in parts.entries)
+      'addresses.$i.$key': value,
+    'addresses.$i.kind': kind,
+  },
+};
+
 void main() {
   final format = VCardFormat();
 
@@ -39,14 +66,7 @@ void main() {
     group('optional fields', () {
       test('are omitted entirely when absent', () {
         final payload = format.buildQrString({'first_name': 'Ada'});
-        for (final tag in [
-          'ORG:',
-          'TITLE:',
-          'TEL:',
-          'EMAIL:',
-          'URL:',
-          'ADR:',
-        ]) {
+        for (final tag in ['ORG', 'TITLE', 'TEL', 'EMAIL', 'URL', 'ADR']) {
           expect(payload, isNot(contains(tag)));
         }
       });
@@ -56,14 +76,12 @@ void main() {
           'first_name': 'Ada',
           'org': '',
           'title': '',
-          'phone': '',
-          'email': '',
           'url': '',
-          'street': '',
-          'city': '',
-          'region': '',
-          'postal_code': '',
-          'country': '',
+          ...phones([('', 'CELL')]),
+          ...emails([('', 'HOME')]),
+          ...addresses([
+            ({'street': '', 'city': ''}, 'HOME'),
+          ]),
         });
         expect(
           payload,
@@ -77,13 +95,20 @@ void main() {
           'last_name': 'Lovelace',
           'org': 'Analytical Engines',
           'title': 'Mathematician',
-          'phone': '+15550000000',
-          'email': 'ada@example.com',
+          ...phones([('+15550000000', 'CELL')]),
+          ...emails([('ada@example.com', 'HOME')]),
           'url': 'https://example.com',
-          'street': '12 Baker St',
-          'city': 'London',
-          'postal_code': 'NW1 6XE',
-          'country': 'UK',
+          ...addresses([
+            (
+              {
+                'street': '12 Baker St',
+                'city': 'London',
+                'postal_code': 'NW1 6XE',
+                'country': 'UK',
+              },
+              'HOME',
+            ),
+          ]),
         });
         expect(payload, '''
 BEGIN:VCARD
@@ -92,68 +117,100 @@ N:Lovelace;Ada;;;
 FN:Ada Lovelace
 ORG:Analytical Engines
 TITLE:Mathematician
-TEL:+15550000000
-EMAIL:ada@example.com
+TEL;TYPE=CELL:+15550000000
+EMAIL;TYPE=HOME:ada@example.com
 URL:https://example.com
-ADR:;;12 Baker St;London;;NW1 6XE;UK
+ADR;TYPE=HOME:;;12 Baker St;London;;NW1 6XE;UK
 END:VCARD''');
+      });
+    });
+
+    group('entries', () {
+      test('each phone, email and address becomes its own line', () {
+        final payload = format.buildQrString({
+          ...phones([
+            ('5550001', 'CELL'),
+            ('5550002', 'WORK'),
+            ('5550003', ''),
+          ]),
+          ...emails([('a@x.io', 'WORK'), ('b@x.io', 'WORK')]),
+          ...addresses([
+            ({'city': 'Anjou'}, 'HOME'),
+            ({'city': 'Laval'}, 'WORK'),
+          ]),
+        });
+        expect(
+          payload.split('\n'),
+          containsAllInOrder([
+            'TEL;TYPE=CELL:5550001',
+            'TEL;TYPE=WORK:5550002',
+            'TEL:5550003',
+            'EMAIL;TYPE=WORK:a@x.io',
+            'EMAIL;TYPE=WORK:b@x.io',
+            'ADR;TYPE=HOME:;;;Anjou;;;',
+            'ADR;TYPE=WORK:;;;Laval;;;',
+          ]),
+        );
+      });
+
+      test('every phone kind maps to its TYPE=', () {
+        for (final (kind, expected) in [
+          ('CELL', 'TEL;TYPE=CELL:5550000'),
+          ('HOME', 'TEL;TYPE=HOME:5550000'),
+          ('WORK', 'TEL;TYPE=WORK:5550000'),
+          ('FAX', 'TEL;TYPE=FAX:5550000'),
+          ('', 'TEL:5550000'),
+        ]) {
+          expect(
+            format.buildQrString(phones([('5550000', kind)])),
+            contains('$expected\n'),
+          );
+        }
+      });
+
+      test('an empty entry between filled ones is skipped', () {
+        final lines = format
+            .buildQrString(phones([('5550001', ''), ('', ''), ('5550003', '')]))
+            .split('\n');
+        expect(lines.where((l) => l.startsWith('TEL')), [
+          'TEL:5550001',
+          'TEL:5550003',
+        ]);
       });
 
       test('each address part fills its own ADR: slot', () {
         expect(
-          format.buildQrString({
-            'street': '10011 Renaude-Lapointe',
-            'city': 'Anjou',
-            'region': 'QC',
-            'postal_code': 'H1H 1H1',
-            'country': 'Canada',
-          }),
-          contains('ADR:;;10011 Renaude-Lapointe;Anjou;QC;H1H 1H1;Canada'),
+          format.buildQrString(
+            addresses([
+              (
+                {
+                  'street': '10011 Renaude-Lapointe',
+                  'city': 'Anjou',
+                  'region': 'QC',
+                  'postal_code': 'H1H 1H1',
+                  'country': 'Canada',
+                },
+                'HOME',
+              ),
+            ]),
+          ),
+          contains(
+            'ADR;TYPE=HOME:;;10011 Renaude-Lapointe;Anjou;QC;H1H 1H1;Canada',
+          ),
         );
       });
 
-      test('a city alone still makes an ADR:', () {
+      test('a phone keeps its pause and wait unescaped', () {
         expect(
-          format.buildQrString({'city': 'Anjou'}),
-          contains('ADR:;;;Anjou;;;'),
+          format.buildQrString(phones([('+15145550000;274,4', 'CELL')])),
+          contains('TEL;TYPE=CELL:+15145550000;274,4\n'),
         );
       });
 
-      test('a phone number keeps its pause unescaped', () {
+      test('a count beyond the stored entries reads them as empty', () {
         expect(
-          format.buildQrString({'phone': '+15145550000,274'}),
-          contains('TEL:+15145550000,274\n'),
-        );
-      });
-
-      test('the phone and email types become TYPE= parameters', () {
-        for (final (choice, expected) in [
-          ('Mobile', 'TEL;TYPE=CELL:5550000'),
-          ('Home', 'TEL;TYPE=HOME:5550000'),
-          ('Work', 'TEL;TYPE=WORK:5550000'),
-          ('Other', 'TEL:5550000'),
-        ]) {
-          expect(
-            format.buildQrString({'phone': '5550000', 'phone_type': choice}),
-            contains(expected),
-          );
-        }
-        for (final (choice, expected) in [
-          ('Home', 'EMAIL;TYPE=HOME:a@x.io'),
-          ('Work', 'EMAIL;TYPE=WORK:a@x.io'),
-          ('Other', 'EMAIL:a@x.io'),
-        ]) {
-          expect(
-            format.buildQrString({'email': 'a@x.io', 'email_type': choice}),
-            contains(expected),
-          );
-        }
-      });
-
-      test('a type with no number or address adds nothing', () {
-        expect(
-          format.buildQrString({'phone_type': 'Work', 'email_type': 'Work'}),
-          isNot(contains('TYPE=')),
+          format.buildQrString({'phones': '3', 'phones.0.number': '5550000'}),
+          contains('TEL:5550000\n'),
         );
       });
     });
@@ -168,7 +225,11 @@ END:VCARD''');
       });
 
       test('a pasted newline stays inside the ADR: property', () {
-        final payload = format.buildQrString({'street': '12 Baker St\nFlat 2'});
+        final payload = format.buildQrString(
+          addresses([
+            ({'street': '12 Baker St\nFlat 2'}, ''),
+          ]),
+        );
         expect(payload, contains(r'ADR:;;12 Baker St\nFlat 2;;;;'));
         // BEGIN, VERSION, N, FN, ADR, END — a raw newline would add a seventh.
         expect(payload.split('\n'), hasLength(6));
@@ -176,14 +237,22 @@ END:VCARD''');
 
       test('a carriage return or CRLF also becomes a literal \\n', () {
         expect(
-          format.buildQrString({'street': 'a\r\nb\rc'}),
+          format.buildQrString(
+            addresses([
+              ({'street': 'a\r\nb\rc'}, ''),
+            ]),
+          ),
           contains(r'ADR:;;a\nb\nc;;;;'),
         );
       });
 
       test('a semicolon inside an address part does not split ADR:', () {
         expect(
-          format.buildQrString({'street': 'Unit 4; Rear'}),
+          format.buildQrString(
+            addresses([
+              ({'street': 'Unit 4; Rear'}, ''),
+            ]),
+          ),
           contains(r'ADR:;;Unit 4\; Rear;;;;'),
         );
       });

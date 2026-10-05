@@ -17,7 +17,7 @@ abstract class QrFormat {
 [lib/models/qr_field.dart](../lib/models/qr_field.dart):
 
 ```dart
-enum QrFieldType { text, password, multiline, dropdown, checkbox }
+enum QrFieldType { text, password, multiline, dropdown, checkbox, group }
 
 typedef QrFieldValidator = String? Function(String value);
 
@@ -29,8 +29,18 @@ class QrField {
   final bool required;         // gates QR rendering
   final String? hint;
   final QrFieldValidator? validate; // optional; also gates QR rendering
+  final List<QrField>? parts;  // group only: the fields one entry is made of
+  final List<QrKind>? kinds;   // group only: what an entry can be labelled as
+}
+
+class QrKind {
+  final String value;          // what the format reads back, e.g. 'CELL'
+  final String label;          // what the user sees, e.g. 'Mobile'
+  final IconData icon;
 }
 ```
+
+A **group** is a field the user can repeat: none at first, an *Add* button for another, and a remove button on each. A vCard's phones, emails and addresses are groups, so a contact can have none or several of each, two work emails included. A group with one part shows each entry as one line, with the kind as an icon menu inside the field and named again in its label (`Phone · Mobile`); a group with several parts boxes each entry, with the kind in a notch of the box's top edge. There is no cap on entries: the QR code's own capacity is the limit, and says so.
 
 `fields` should be a `const` list — it is read on every rebuild. That is why `validate` has to be a top-level or static function rather than a closure: only those are constant expressions.
 
@@ -43,6 +53,9 @@ Every value is a `String`, regardless of field type:
 | `text` / `password` / `multiline` | the controller's text | `''` |
 | `dropdown` | the selected option string | `options.first` |
 | `checkbox` | `'true'` / `'false'` | `'false'` |
+| `group` | the number of entries, with each entry's parts under `<group>.<i>.<part>` and its kind under `<group>.<i>.kind` | `'0'` |
+
+Read a group back with `QrEntries.read(values, group)`, which returns each entry as its parts by id plus `kind`, empty where a key is missing. Skip an entry whose parts are all empty: an *Add* pressed and left blank should not put an empty line in the payload.
 
 `buildQrString` is invoked on every keystroke and *before* required fields are satisfied, so read defensively: `values['x'] ?? ''`.
 
@@ -83,7 +96,7 @@ Escaping rules differ per spec and belong inside the format class:
 - MeCard backslash-escapes `\` and `;` in every value, `,` only inside `N:` and `ADR:` where it separates components, and turns line breaks into spaces, since it has no escape for one. The spec escapes `:` and every `,` too, but the iPhone camera does not undo it, and turned `https://` into `https\://` in testing, and neither is ambiguous where it is left alone. MeCard carries no organisation or job title, which is the price of its smaller code.
 - SMS escapes nothing: a reader splits at the first colon after the number, which cannot hold one.
 - Location validates instead of escaping: decimal degrees with a point, within ±90 and ±180, which is all `geo:` accepts.
-- vCard emits `N:` and `FN:` lines; the rest are conditional. Every text value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a pasted line break from ending its own property. `TEL` is not text and is left as typed, so a pause's `,` does not arrive with a backslash in front of it. The *Phone Type* and *Email Type* dropdowns become a `TYPE=` parameter (`TEL;TYPE=CELL:…`, `EMAIL;TYPE=WORK:…`); *Other* leaves it off. MeCard has no types, so it offers neither.
+- vCard emits `N:` and `FN:` lines; the rest are conditional. Every text value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a pasted line break from ending its own property. `TEL` is not text and is left as typed, so a pause's `,` does not arrive with a backslash in front of it. Each phone, email and address is its own line, and its kind becomes a `TYPE=` parameter (`TEL;TYPE=CELL:…`, `EMAIL;TYPE=WORK:…`, `ADR;TYPE=HOME:…`); *Other* leaves it off. The kinds are a beginner set from RFC 2426: phone Mobile, Home, Work, Fax, Other; email Home, Work, Other; address Home, Work. MeCard has no types, so it keeps a single phone, email and address. A vCard phone also takes `;` (a wait), through `validatePhoneWithWait`: a vCard property ends at a line break, so the `;` is no separator there, and the iPhone camera keeps it.
 
 ## Adding a format
 

@@ -19,9 +19,11 @@ final RegExp _email = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
 // Besides the separators people type, `,` (a pause) lets a number carry an
 // extension, as in `+15145550000,274`, and `*` and `#` are part of service codes
-// like `*67`. Not `;` (a wait): it is the property separator in MeCard and the
-// parameter separator in a tel: URI, and generators drop it and what follows.
+// like `*67`. `;` (a wait) only where the format can carry it: it is the property
+// separator in MeCard and starts a parameter in a tel: URI, and generators drop
+// it and what follows.
 final RegExp _phone = RegExp(r'^\+?[\d ().,*#-]+$');
+final RegExp _phoneWithWait = RegExp(r'^\+?[\d ().,;*#-]+$');
 
 final RegExp _digit = RegExp(r'\d');
 
@@ -40,11 +42,20 @@ String? validateUrl(String value) {
   return null;
 }
 
-String? validatePhone(String value) {
+String? validatePhone(String value) =>
+    _validatePhone(value, _phone, 'Use digits, spaces and + ( ) - , * # only');
+
+/// For a format whose properties end at a line break rather than a `;`, which is
+/// only vCard: it can carry a wait as typed.
+String? validatePhoneWithWait(String value) => _validatePhone(
+  value,
+  _phoneWithWait,
+  'Use digits, spaces and + ( ) - , ; * # only',
+);
+
+String? _validatePhone(String value, RegExp allowed, String message) {
   final trimmed = value.trim();
-  if (!_phone.hasMatch(trimmed)) {
-    return 'Use digits, spaces and + ( ) - , * # only';
-  }
+  if (!allowed.hasMatch(trimmed)) return message;
   if (_digit.allMatches(trimmed).length < 3) return 'That is too short';
   return null;
 }
