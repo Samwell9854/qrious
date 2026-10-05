@@ -57,7 +57,11 @@ The shared rules live in [lib/formats/validators.dart](../lib/formats/validators
 
 They are deliberately loose. A validator's job is to reject what a scanner cannot use, not to enforce a spec: `validateEmail` accepts anything with an `@` and a dotted domain, since stricter patterns start refusing addresses that work. `validateUrl` is the one real judgement call — it insists on a scheme, because a bare `example.com` encodes as a scheme-less string and readers disagree about what to do with it. `validatePhone` lets through the dialling marks as well as the separators: `,` (a pause) for an extension like `+15145550000,274`, and `*` and `#` for service codes. It refuses `;` (a wait), which is the property separator in MeCard and starts a parameter in a `tel:` URI; generators drop it and everything after it.
 
-Both contact formats take the address as separate parts, from the shared `addressFields` in [lib/formats/address.dart](../lib/formats/address.dart): street, city, province or state, postal code, country. Each fills its own slot of `ADR`. A single free-text address put the whole thing in the street slot and left the phone to guess where the city began, which it got wrong on a hyphenated street name.
+Both contact formats take the address as separate parts, from the shared `addressFields` in [lib/formats/address.dart](../lib/formats/address.dart): street, city, province or state, postal code, country. Each fills its own slot of `ADR`. A single free-text address put the whole thing in the street slot and left the phone to guess where the city began, which the iPhone camera got wrong on a hyphenated street name.
+
+## Testing against real readers
+
+The unit tests check payloads against the specs; what a phone does with them is a separate question, and readers differ. Scan results recorded in these docs and in code comments come from the **iPhone camera app**, the reader most people will try first. It reads vCard faithfully, `ADR` components included; it does not undo MeCard's backslash escapes; and it guesses at the parts of a one-line address. Where a reader and a spec disagree, follow the spec unless the reader's behaviour breaks something the user can see, and record which reader it was.
 
 ## Supported formats
 
@@ -76,7 +80,7 @@ Both contact formats take the address as separate parts, from the shared `addres
 Escaping rules differ per spec and belong inside the format class:
 - Wi-Fi escapes `\ ; , " :` with a backslash (`WifiFormat._escape`).
 - Email uses `Uri.encodeComponent` on the address and each query param, then restores `@` and `+` in the address — RFC 6068 allows both there, and `%2B` breaks plus-addressing in some clients. The query params keep the full encoding, where `+` can be read as a space.
-- MeCard backslash-escapes `\` and `;` in every value, `,` only inside `N:` and `ADR:` where it separates components, and turns line breaks into spaces, since it has no escape for one. The spec escapes `:` and every `,` too, but a phone reader that does not undo it turned `https://` into `https\://` in testing, and neither is ambiguous where it is left alone. MeCard carries no organisation or job title, which is the price of its smaller code.
+- MeCard backslash-escapes `\` and `;` in every value, `,` only inside `N:` and `ADR:` where it separates components, and turns line breaks into spaces, since it has no escape for one. The spec escapes `:` and every `,` too, but the iPhone camera does not undo it, and turned `https://` into `https\://` in testing, and neither is ambiguous where it is left alone. MeCard carries no organisation or job title, which is the price of its smaller code.
 - SMS escapes nothing: a reader splits at the first colon after the number, which cannot hold one.
 - Location validates instead of escaping: decimal degrees with a point, within ±90 and ±180, which is all `geo:` accepts.
 - vCard emits `N:` and `FN:` lines; the rest are conditional. Every text value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a pasted line break from ending its own property. `TEL` is not text and is left as typed, so a pause's `,` does not arrive with a backslash in front of it. The *Phone Type* and *Email Type* dropdowns become a `TYPE=` parameter (`TEL;TYPE=CELL:…`, `EMAIL;TYPE=WORK:…`); *Other* leaves it off. MeCard has no types, so it offers neither.

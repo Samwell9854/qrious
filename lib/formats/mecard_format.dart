@@ -66,8 +66,8 @@ class MeCardFormat extends QrFormat {
   /// a space. Backslash goes first, so it does not escape the backslashes the
   /// later replacements add.
   ///
-  /// The spec also escapes `:` and `,`, but phone readers do not all undo it: an
-  /// escaped colon turned `https://` into `https\://` in testing. A colon after
+  /// The spec also escapes `:` and `,`, but phone readers do not all undo it: the
+  /// iPhone camera turned an escaped `https://` into `https\://` in testing. A colon after
   /// the tag is unambiguous anyway, and a comma only matters where it separates
   /// components, which [_escapeComponent] covers.
   String _escape(String s) => s
