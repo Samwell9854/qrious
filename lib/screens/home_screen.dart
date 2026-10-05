@@ -48,6 +48,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final Map<String, String> _values = {};
   final Map<String, TextEditingController> _controllers = {};
 
+  /// Password fields the user has asked to see in the clear.
+  final Set<String> _revealed = {};
+
   // Not reset on a format switch: they describe the output, not the content.
   ErrorCorrection _errorCorrection = ErrorCorrection.auto;
   ImageSize _imageSize = ImageSize.medium;
@@ -67,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     _controllers.clear();
     _values.clear();
+    _revealed.clear();
 
     for (final field in _selectedFormat.fields) {
       switch (field.type) {
@@ -266,7 +270,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             border: const OutlineInputBorder(),
             errorText: error,
           ),
-          maxLines: 4,
+          // Grows with its text, then scrolls, so a long note is not read
+          // through a four-line slot.
+          minLines: 4,
+          maxLines: 12,
         ),
         QrFieldType.password => TextFormField(
           controller: _controllers[field.id],
@@ -275,8 +282,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             hintText: field.hint,
             border: const OutlineInputBorder(),
             errorText: error,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _revealed.contains(field.id)
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+              ),
+              tooltip: _revealed.contains(field.id)
+                  ? 'Hide password'
+                  : 'Show password',
+              onPressed: () => setState(() {
+                if (!_revealed.remove(field.id)) _revealed.add(field.id);
+              }),
+            ),
           ),
-          obscureText: true,
+          obscureText: !_revealed.contains(field.id),
         ),
         _ => TextFormField(
           controller: _controllers[field.id],

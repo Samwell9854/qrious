@@ -64,4 +64,44 @@ void main() {
     );
     expect(tester.getSize(payload.first).height, lessThanOrEqualTo(150));
   });
+
+  testWidgets('a multi-line field grows with its text, up to a point', (
+    tester,
+  ) async {
+    await pumpHome(tester, const Size(1280, 800));
+    await pickFormat(tester, 'Plain Text');
+    final field = find.byType(TextFormField);
+
+    final empty = tester.getSize(field).height;
+    await tester.enterText(field, List.filled(8, 'line').join('\n'));
+    await tester.pump();
+    final eight = tester.getSize(field).height;
+    await tester.enterText(field, List.filled(40, 'line').join('\n'));
+    await tester.pump();
+    final forty = tester.getSize(field).height;
+
+    expect(eight, greaterThan(empty));
+    expect(forty, greaterThan(eight));
+    expect(forty, lessThan(empty * 4));
+  });
+
+  testWidgets('the password can be shown and hidden again', (tester) async {
+    await pumpHome(tester, const Size(1280, 800));
+    bool obscured() => tester
+        .widget<EditableText>(
+          find.descendant(
+            of: find.widgetWithText(TextFormField, 'Password'),
+            matching: find.byType(EditableText),
+          ),
+        )
+        .obscureText;
+
+    expect(obscured(), isTrue);
+    await tester.tap(find.byTooltip('Show password'));
+    await tester.pump();
+    expect(obscured(), isFalse);
+    await tester.tap(find.byTooltip('Hide password'));
+    await tester.pump();
+    expect(obscured(), isTrue);
+  });
 }
