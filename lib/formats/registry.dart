@@ -1,6 +1,9 @@
 import '../models/qr_format.dart';
 import 'email_format.dart';
+import 'geo_format.dart';
+import 'mecard_format.dart';
 import 'phone_format.dart';
+import 'sms_format.dart';
 import 'text_format.dart';
 import 'url_format.dart';
 import 'vcard_format.dart';
@@ -15,8 +18,11 @@ import 'wifi_format.dart';
 final List<QrFormat> qrFormats = List.unmodifiable([
   WifiFormat(),
   VCardFormat(),
+  MeCardFormat(),
   UrlFormat(),
   EmailFormat(),
   PhoneFormat(),
+  SmsFormat(),
+  GeoFormat(),
   TextFormat(),
 ]);

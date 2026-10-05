@@ -18,6 +18,13 @@ Future<void> pumpHome(WidgetTester tester, Size size) async {
 Future<void> pickFormat(WidgetTester tester, String name) async {
   await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));
   await tester.pumpAndSettle();
+  // The open menu scrolls in a short window, and builds only what it shows.
+  await tester.scrollUntilVisible(
+    find.text(name),
+    50,
+    scrollable: find.byType(Scrollable).last,
+  );
+  await tester.pumpAndSettle();
   await tester.tap(find.text(name).last);
   await tester.pumpAndSettle();
 }

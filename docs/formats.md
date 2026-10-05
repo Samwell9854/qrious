@@ -63,14 +63,20 @@ They are deliberately loose. A validator's job is to reject what a scanner canno
 | --- | --- | --- |
 | `wifi` | [WifiFormat](../lib/formats/wifi_format.dart) | `WIFI:T:<WPA\|WEP\|nopass>;S:<ssid>;P:<pass>;H:<bool>;;` |
 | `vcard` | [VCardFormat](../lib/formats/vcard_format.dart) | vCard 3.0, newline-joined, optional lines omitted when empty |
+| `mecard` | [MeCardFormat](../lib/formats/mecard_format.dart) | `MECARD:N:<last>,<first>;TEL:…;EMAIL:…;URL:…;ADR:…;;`, optional properties omitted when empty |
 | `url` | [UrlFormat](../lib/formats/url_format.dart) | the raw URL |
 | `email` | [EmailFormat](../lib/formats/email_format.dart) | `mailto:` with URI-encoded `subject`/`body`, `@` and `+` left literal in the address |
 | `phone` | [PhoneFormat](../lib/formats/phone_format.dart) | `tel:<number>` |
+| `sms` | [SmsFormat](../lib/formats/sms_format.dart) | `SMSTO:<number>:<message>`, or `SMSTO:<number>` with no message |
+| `geo` | [GeoFormat](../lib/formats/geo_format.dart) | `geo:<lat>,<lon>` in decimal degrees (RFC 5870) |
 | `text` | [TextFormat](../lib/formats/text_format.dart) | the text verbatim |
 
 Escaping rules differ per spec and belong inside the format class:
 - Wi-Fi escapes `\ ; , " :` with a backslash (`WifiFormat._escape`).
 - Email uses `Uri.encodeComponent` on the address and each query param, then restores `@` and `+` in the address — RFC 6068 allows both there, and `%2B` breaks plus-addressing in some clients. The query params keep the full encoding, where `+` can be read as a space.
+- MeCard backslash-escapes `\ ; : ,` and turns line breaks into spaces, since it has no escape for one. It carries no organisation or job title, which is the price of its smaller code.
+- SMS escapes nothing: a reader splits at the first colon after the number, which cannot hold one.
+- Location validates instead of escaping: decimal degrees with a point, within ±90 and ±180, which is all `geo:` accepts.
 - vCard emits `N:` and `FN:` lines; the rest are conditional. Every value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a multiline address from ending its own property.
 
 ## Adding a format

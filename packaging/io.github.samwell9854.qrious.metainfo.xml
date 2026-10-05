@@ -14,10 +14,12 @@
     <p>Supported formats:</p>
     <ul>
       <li>Wi-Fi networks</li>
-      <li>Contact information as vCards</li>
+      <li>Contact information as vCards or MeCards</li>
       <li>URLs</li>
       <li>Email addresses</li>
       <li>Phone numbers</li>
+      <li>Text messages</li>
+      <li>Locations</li>
       <li>Plain text</li>
     </ul>
   </description>

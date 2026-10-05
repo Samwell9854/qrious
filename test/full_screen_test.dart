@@ -52,6 +52,13 @@ Future<void> fillSsid(WidgetTester tester) async {
 Future<void> fillDenseText(WidgetTester tester) async {
   await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));
   await tester.pumpAndSettle();
+  // The open menu scrolls in a short window, and builds only what it shows.
+  await tester.scrollUntilVisible(
+    find.text('Plain Text'),
+    50,
+    scrollable: find.byType(Scrollable).last,
+  );
+  await tester.pumpAndSettle();
   await tester.tap(find.text('Plain Text').last);
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextFormField), densePayload);

@@ -19,10 +19,13 @@ Each [GitHub release](https://github.com/Samwell9854/qrious/releases) also carri
 | Format | Payload |
 | --- | --- |
 | Wi-Fi | `WIFI:` network credentials (WPA/WPA2, WEP, or open; hidden networks supported) |
-| Contact | vCard 3.0 |
+| Contact (vCard) | vCard 3.0 |
+| Contact (MeCard) | `MECARD:`, a more compact contact card |
 | URL / Website | the URL as-is |
 | Email | `mailto:` with optional subject and body |
 | Phone Number | `tel:` |
+| Text Message (SMS) | `SMSTO:` with an optional message |
+| Location | `geo:` latitude and longitude |
 | Plain Text | the text as-is |
 
 The encoded string is shown beneath the code and can be selected or copied to the clipboard.

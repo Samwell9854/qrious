@@ -216,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildFormatPicker() {
     return DropdownButtonFormField<QrFormat>(
       initialValue: _selectedFormat,
+      isExpanded: true,
       decoration: const InputDecoration(
         labelText: 'Format',
         border: OutlineInputBorder(),
@@ -225,11 +226,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             (f) => DropdownMenuItem(
               value: f,
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(f.icon, size: 20),
                   const SizedBox(width: 12),
-                  Text(f.name),
+                  Flexible(
+                    child: Text(f.name, overflow: TextOverflow.ellipsis),
+                  ),
                 ],
               ),
             ),
