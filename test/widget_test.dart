@@ -87,7 +87,15 @@ void main() {
     // Both panes are present in the same scrollable, and nothing overflows.
     expect(find.text('Network Name (SSID)'), findsOneWidget);
     expect(find.text('QR Code Data'), findsOneWidget);
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    Finder scrollerOf(String text) => find.ancestor(
+      of: find.text(text),
+      matching: find.byType(SingleChildScrollView),
+    );
+    expect(scrollerOf('QR Code Data'), findsOneWidget);
+    expect(
+      tester.widget(scrollerOf('QR Code Data')),
+      same(tester.widget(scrollerOf('Network Name (SSID)').last)),
+    );
     expect(find.byType(Row).evaluate().isNotEmpty, isTrue);
 
     await tester.enterText(

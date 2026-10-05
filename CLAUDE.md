@@ -26,6 +26,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/formats/](lib/formats/) | One file per supported QR format, plus `registry.dart` (the list the UI reads) and `validators.dart` (rules shared across formats) |
 | [lib/screens/home_screen.dart](lib/screens/home_screen.dart) | The whole UI: format picker, generated form, QR preview |
 | [lib/widgets/version_badge.dart](lib/widgets/version_badge.dart) | The version chip in the app bar |
+| [lib/widgets/full_screen_qr.dart](lib/widgets/full_screen_qr.dart), [lib/full_screen.dart](lib/full_screen.dart), [lib/pixel_size.dart](lib/pixel_size.dart) | The code alone at the size of the screen, for scanning; taking the whole screen for it, and reading how large a pixel is to judge when to offer it (a channel the Linux runner answers) |
 | [lib/qr_encoding.dart](lib/qr_encoding.dart) | Encodes a payload at the chosen error correction, including how Auto picks a level |
 | [lib/qr_png.dart](lib/qr_png.dart), [lib/qr_svg.dart](lib/qr_svg.dart) | Render the encoded code to a PNG or an SVG for saving — black on white, with a quiet zone, sized in pixels per module |
 | [lib/qr_export.dart](lib/qr_export.dart) | The file types Save offers, their rendering and extensions, and the suggested filename |

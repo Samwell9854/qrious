@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../formats/registry.dart';
+import '../full_screen.dart';
+import '../pixel_size.dart';
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import '../image_clipboard.dart';
@@ -12,9 +15,17 @@ import '../qr_export.dart';
 import '../qr_png.dart';
 import '../save_location.dart';
 import '../widgets/app_title.dart';
+import '../widgets/fill_then_scroll.dart';
+import '../widgets/full_screen_qr.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.pickSaveLocation, this.copyImage});
+  const HomeScreen({
+    super.key,
+    this.pickSaveLocation,
+    this.copyImage,
+    this.setFullScreen,
+    this.readPixelSize,
+  });
 
   /// Injectable for tests; the real save dialog when null.
   final SaveLocationPicker? pickSaveLocation;
@@ -22,11 +33,17 @@ class HomeScreen extends StatefulWidget {
   /// Injectable for tests; the real clipboard when null.
   final PngClipboardCopier? copyImage;
 
+  /// Injectable for tests; the real window when null.
+  final FullScreenSetter? setFullScreen;
+
+  /// Injectable for tests; the real monitor when null.
+  final PixelSizeReader? readPixelSize;
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late QrFormat _selectedFormat;
   final Map<String, String> _values = {};
   final Map<String, TextEditingController> _controllers = {};
@@ -38,6 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _readPixelSize();
     _selectedFormat = qrFormats.first;
     _initControllers();
   }
@@ -66,8 +85,24 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Millimetres per logical pixel on the current monitor, or null until known
+  /// and on platforms that cannot say.
+  double? _millimetresPerPixel;
+
+  Future<void> _readPixelSize() async {
+    final mm = await (widget.readPixelSize ?? readMillimetresPerPixel)();
+    if (mounted && mm != _millimetresPerPixel) {
+      setState(() => _millimetresPerPixel = mm);
+    }
+  }
+
+  /// A move to another monitor arrives as a metrics change, as does a resize.
+  @override
+  void didChangeMetrics() => _readPixelSize();
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     for (final c in _controllers.values) {
       c.dispose();
     }
@@ -121,9 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: padding,
               child: wide
                   ? _buildWideLayout()
-                  : _buildNarrowLayout(
-                      constraints.maxWidth - padding.horizontal,
-                    ),
+                  : _buildNarrowLayout(constraints.deflate(padding).biggest),
             );
           },
         ),
@@ -153,15 +186,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(width: 24),
-        Expanded(child: _buildQrPanel(qrSize: 260, expandPreview: true)),
+        Expanded(child: _buildQrPanel()),
       ],
     );
   }
 
-  Widget _buildNarrowLayout(double availableWidth) {
-    // The QR image sits inside a 16px-padded white container; keep it square
-    // and within the viewport on phone-sized screens.
-    final qrSize = (availableWidth - 32).clamp(120.0, 260.0);
+  Widget _buildNarrowLayout(Size available) {
+    // As wide as the column, but no taller than the viewport, so a short window
+    // can still see the whole code at once.
+    final qrSize = max(_codeSizeFor(available), 120.0);
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -170,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 20),
           ..._selectedFormat.fields.map(_buildField),
           const SizedBox(height: 8),
-          _buildQrPanel(qrSize: qrSize, expandPreview: false),
+          _buildQrPanel(qrSize: qrSize),
         ],
       ),
     );
@@ -302,6 +335,30 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _showFullScreen(EncodedQr qr) async {
+    final navigator = Navigator.of(context);
+    final setter = widget.setFullScreen ?? setFullScreen;
+
+    await setter(true);
+    await navigator.push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => FullScreenQr(qr: qr),
+        transitionsBuilder: (_, animation, _, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
+    await setter(false);
+  }
+
+  /// Below this many millimetres per module on the screen, the preview says the
+  /// code can be shown full screen.
+  ///
+  /// A judgement, not a spec figure. A phone reads a module by the angle it covers,
+  /// so size and distance trade off. 1.4mm modules (5px on a 24" 1080p monitor)
+  /// scanned instantly from about 1.2m in testing; the same angle at a handheld
+  /// 40cm is about 0.45mm.
+  static const double _comfortableModuleMillimetres = 0.5;
+
   /// What the preview is showing, in the beginner's terms.
   String _describe(EncodedQr qr) {
     final level = qr.errorCorrection;
@@ -368,7 +425,109 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildQrPanel({required double qrSize, required bool expandPreview}) {
+  /// The white container around the code pads it by 16px on each side.
+  static const double _codeBoxPadding = 16;
+
+  /// The largest square code that fits [space] with its white container around it.
+  static double _codeSizeFor(Size space) =>
+      max(min(space.width, space.height) - 2 * _codeBoxPadding, 0);
+
+  /// Whether a [qrSize] code leaves its modules too small to scan comfortably.
+  /// QrImageView keeps 10px of padding on each side inside its size.
+  bool _isDense(EncodedQr qr, double qrSize) {
+    final mmPerPixel = _millimetresPerPixel ?? fallbackMillimetresPerPixel();
+    final modulePixels = (qrSize - 20) / qr.moduleCount;
+    return modulePixels * mmPerPixel < _comfortableModuleMillimetres;
+  }
+
+  Widget _buildCode(EncodedQr qr, double qrSize) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(_codeBoxPadding),
+      // The whole code is the control, rather than a button beside it: it is the
+      // obvious thing to reach for, and the hint below says so when the code is
+      // small enough to need it.
+      child: Tooltip(
+        message: 'Show full screen',
+        child: Semantics(
+          button: true,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.zoomIn,
+            child: GestureDetector(
+              onTap: () => _showFullScreen(qr),
+              child: QrImageView.withQr(qr: qr.code, size: qrSize),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// What the code produced, and when it is dense, that it can go full screen.
+  List<Widget> _buildCaption(EncodedQr qr, {required bool dense}) {
+    final small = Theme.of(context).textTheme.bodySmall;
+    return [
+      const SizedBox(height: 8),
+      Text(_describe(qr), textAlign: TextAlign.center, style: small),
+      if (dense) ...[
+        const SizedBox(height: 4),
+        Text(
+          'This code is dense and may be hard to scan here. '
+          '${pointerVerb()} it to show it full screen.',
+          textAlign: TextAlign.center,
+          style: small?.copyWith(color: Theme.of(context).colorScheme.primary),
+        ),
+      ],
+    ];
+  }
+
+  /// The wide layout's code: as large as the panel's leftover space allows, and
+  /// always square.
+  ///
+  /// The caption sits inside the measured space, so whether to show the dense
+  /// hint is judged before the caption's height is known. [_captionAllowance]
+  /// stands in for it; a code within a few pixels of the threshold may get the
+  /// verdict its neighbour would, which is harmless either way.
+  Widget _buildFittedCode(EncodedQr qr) {
+    return LayoutBuilder(
+      builder: (context, space) {
+        final estimate = _codeSizeFor(
+          Size(space.maxWidth, space.maxHeight - _captionAllowance),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, room) =>
+                    Center(child: _buildCode(qr, _codeSizeFor(room.biggest))),
+              ),
+            ),
+            ..._buildCaption(qr, dense: _isDense(qr, estimate)),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Roughly the height of the caption under the wide layout's code.
+  static const double _captionAllowance = 40;
+
+  /// The least height the wide layout's code and caption get before the panel
+  /// scrolls instead: a 200px code, its white box, and room for the caption with
+  /// the dense hint wrapped over several lines in a narrow panel.
+  static const double _minCodeArea = 200 + 2 * _codeBoxPadding + 120;
+
+  /// About eight lines of the payload before its box scrolls.
+  static const double _maxDataHeight = 150;
+
+  /// The code, its caption and everything under it. With a [qrSize] the code is
+  /// that size, for the stacked layout's scroll view; without one it fills the
+  /// leftover height, which only the wide layout has to give.
+  Widget _buildQrPanel({double? qrSize}) {
     final qrString = _qrString;
     final filled = _isReady && qrString.isNotEmpty;
     final qr = filled ? _encode(qrString) : null;
@@ -376,14 +535,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final preview = Center(
       child: switch ((filled, qr)) {
-        (_, final EncodedQr qr) => Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: QrImageView.withQr(qr: qr.code, size: qrSize),
-        ),
+        (_, final EncodedQr qr) => _buildCode(qr, qrSize ?? 0),
         (true, null) => const Text(
           'Too much data for a QR code\nat this error correction',
           textAlign: TextAlign.center,
@@ -397,26 +549,10 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
 
-    return Column(
+    final rest = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Wide layout lets the preview absorb the leftover height; stacked
-        // layout must not, since it lives inside a scroll view.
-        if (expandPreview)
-          Expanded(child: preview)
-        else
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: preview,
-          ),
-        if (qr != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _describe(qr),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
         const SizedBox(height: 16),
         _buildOutputOptions(),
         const SizedBox(height: 16),
@@ -469,9 +605,20 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: SelectableText(
-                  ready ? qrString : '—',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                // Capped, because it is there to glance at and the button beside
+                // it copies all of it; a long payload would otherwise push the
+                // code itself off the screen.
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: _maxDataHeight),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      ready ? qrString : '—',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
                 ),
               ),
               if (ready)
@@ -488,6 +635,33 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ],
+    );
+
+    // Wide layout gives the code whatever height the rest leaves, and scrolls
+    // only when even its minimum does not fit. Stacked layout already lives in a
+    // scroll view, with a code sized from the width.
+    if (qrSize == null) {
+      return LayoutBuilder(
+        builder: (context, viewport) => SingleChildScrollView(
+          child: FillThenScroll(
+            viewportHeight: viewport.maxHeight,
+            minFillHeight: _minCodeArea,
+            fill: qr != null ? _buildFittedCode(qr) : preview,
+            rest: rest,
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: preview,
+        ),
+        if (qr != null) ..._buildCaption(qr, dense: _isDense(qr, qrSize)),
+        rest,
       ],
     );
   }

@@ -1,12 +1,18 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <math.h>
 
 #include "flutter/generated_plugin_registrant.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  GtkWindow* window;
+  FlMethodChannel* window_channel;
+  // Whether the window was already full screen when Dart asked for it, so that
+  // leaving the full-screen code does not also undo the user's own choice.
+  gboolean was_full_screen;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -25,6 +31,72 @@ static gboolean is_gnome_desktop() {
     }
   }
   return FALSE;
+}
+
+static gboolean is_full_screen(GtkWindow* window) {
+  GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(window));
+  return gdk_window != nullptr &&
+         (gdk_window_get_state(gdk_window) & GDK_WINDOW_STATE_FULLSCREEN) != 0;
+}
+
+// Millimetres per logical pixel on the monitor showing the window, or 0 when the
+// monitor does not report its physical size. GTK's logical pixels are Flutter's,
+// so no scale factor is involved. Diagonals rather than widths, because they are
+// the same whichever way a monitor is rotated, while whether the millimetres
+// follow a rotation is up to the backend.
+static double millimetres_per_pixel(GtkWindow* window) {
+  GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(window));
+  if (gdk_window == nullptr) {
+    return 0;
+  }
+  GdkMonitor* monitor = gdk_display_get_monitor_at_window(
+      gdk_window_get_display(gdk_window), gdk_window);
+  if (monitor == nullptr) {
+    return 0;
+  }
+  GdkRectangle geometry;
+  gdk_monitor_get_geometry(monitor, &geometry);
+  int width_mm = gdk_monitor_get_width_mm(monitor);
+  int height_mm = gdk_monitor_get_height_mm(monitor);
+  if (width_mm <= 0 || height_mm <= 0 || geometry.width <= 0 ||
+      geometry.height <= 0) {
+    return 0;
+  }
+  return hypot(width_mm, height_mm) / hypot(geometry.width, geometry.height);
+}
+
+// Answers the "qrious/window" channel, for what Flutter has no desktop call for:
+// setFullScreen(bool) takes the whole screen for the full-screen code and gives
+// it back afterwards (lib/full_screen.dart); millimetresPerPixel says how large a
+// pixel is, to judge whether a code is dense (lib/pixel_size.dart).
+static void window_method_call_cb(FlMethodChannel* channel,
+                                  FlMethodCall* method_call,
+                                  gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  FlValue* args = fl_method_call_get_args(method_call);
+  g_autoptr(FlMethodResponse) response = nullptr;
+
+  const gchar* method = fl_method_call_get_name(method_call);
+  if (g_strcmp0(method, "millimetresPerPixel") == 0) {
+    g_autoptr(FlValue) result =
+        fl_value_new_float(millimetres_per_pixel(self->window));
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "setFullScreen") != 0) {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  } else if (fl_value_get_type(args) != FL_VALUE_TYPE_BOOL) {
+    response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+        "bad-args", "setFullScreen takes a bool", nullptr));
+  } else {
+    if (fl_value_get_bool(args)) {
+      self->was_full_screen = is_full_screen(self->window);
+      gtk_window_fullscreen(self->window);
+    } else if (!self->was_full_screen) {
+      gtk_window_unfullscreen(self->window);
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  }
+
+  fl_method_call_respond(method_call, response, nullptr);
 }
 
 // Called when first Flutter frame received.
@@ -78,6 +150,14 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
+  self->window = window;
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  self->window_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)), "qrious/window",
+      FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(
+      self->window_channel, window_method_call_cb, self, nullptr);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -124,6 +204,7 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_object(&self->window_channel);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
