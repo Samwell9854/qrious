@@ -9,7 +9,9 @@ import 'url_format.dart';
 import 'vcard_format.dart';
 import 'wifi_format.dart';
 
-/// Every format the app offers, in the order the picker lists them.
+/// Every format the app offers. The picker lists them under their groups, in
+/// [QrFormatGroup] order, and in this order within a group; the first is the
+/// format the app opens on.
 ///
 /// Registration lives here rather than on the screen so that adding a format is
 /// a change to `lib/formats/` alone. The UI reads this list and knows nothing
@@ -19,10 +21,19 @@ final List<QrFormat> qrFormats = List.unmodifiable([
   WifiFormat(),
   VCardFormat(),
   MeCardFormat(),
-  UrlFormat(),
-  EmailFormat(),
   PhoneFormat(),
   SmsFormat(),
+  EmailFormat(),
+  UrlFormat(),
   GeoFormat(),
   TextFormat(),
 ]);
+
+/// [qrFormats] by group, in the order the picker shows them, leaving out groups
+/// with no format yet.
+List<(QrFormatGroup, List<QrFormat>)> get qrFormatsByGroup => [
+  for (final group in QrFormatGroup.values)
+    if (qrFormats.where((f) => f.group == group).toList() case final formats
+        when formats.isNotEmpty)
+      (group, formats),
+];

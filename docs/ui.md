@@ -21,7 +21,7 @@ The **Clear** button beside the picker (`_buildFormatRow`) empties the current f
 
 Either way, an undo is refused once something has been typed since the Clear, since restoring would lose that input instead. A format switch forgets the snapshot.
 
-The picker itself is filled, unlike the outlined fields under it, because it decides what those fields are and should not pass for one of them. The fill is the same quiet `surfaceContainerHighest` as the payload box, and the emphasis is on the format's icon, in the primary colour, and its name in bold; the open menu stays plain.
+The picker itself is filled, unlike the outlined fields under it, because it decides what those fields are and should not pass for one of them. The fill is the same quiet `surfaceContainerHighest` as the payload box, and the emphasis is on the format's icon, in the primary colour, and its name in bold; the open menu stays plain. The menu lists formats under their groups' headings (see [formats.md](formats.md#groups)). A heading is a disabled item with no value, so it cannot be picked, and `selectedItemBuilder` gives it an empty entry to keep its list in step with the items.
 
 `dispose()` disposes the controllers; anything added to `_controllers` must be disposable there.
 

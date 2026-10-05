@@ -11,6 +11,9 @@ class TextFormat extends QrFormat {
   String get name => 'Plain Text';
 
   @override
+  QrFormatGroup get group => QrFormatGroup.text;
+
+  @override
   IconData get icon => Icons.notes;
 
   @override

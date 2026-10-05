@@ -12,6 +12,9 @@ class WifiFormat extends QrFormat {
   String get name => 'Wi-Fi';
 
   @override
+  QrFormatGroup get group => QrFormatGroup.connect;
+
+  @override
   IconData get icon => Icons.wifi;
 
   @override

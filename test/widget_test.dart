@@ -56,24 +56,49 @@ void main() {
     expect(find.text('WIFI:T:WPA;S:MyNetwork;P:;H:false;;'), findsOneWidget);
   });
 
-  testWidgets('the format picker shows each format beside its icon', (
+  testWidgets('the format picker lists formats under group headings', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(1280, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(const QriousApp());
     await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));
     await tester.pumpAndSettle();
 
-    for (final format in qrFormats) {
-      final row = find.ancestor(
-        of: find.text(format.name).last,
-        matching: find.byType(Row),
-      );
-      expect(
-        find.descendant(of: row.first, matching: find.byIcon(format.icon)),
-        findsOneWidget,
-        reason: format.id,
-      );
+    double top(String text) => tester.getTopLeft(find.text(text).last).dy;
+    var previous = double.negativeInfinity;
+    for (final (group, formats) in qrFormatsByGroup) {
+      final heading = top(group.label.toUpperCase());
+      expect(heading, greaterThan(previous), reason: group.label);
+      for (final format in formats) {
+        final row = find.ancestor(
+          of: find.text(format.name).last,
+          matching: find.byType(Row),
+        );
+        expect(
+          find.descendant(of: row.first, matching: find.byIcon(format.icon)),
+          findsOneWidget,
+          reason: format.id,
+        );
+        expect(top(format.name), greaterThan(heading), reason: format.id);
+        previous = top(format.name);
+      }
     }
+  });
+
+  testWidgets('a group heading cannot be chosen', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const QriousApp());
+    await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('SAVE A CONTACT'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    // Still on Wi-Fi, whether or not the menu stayed open.
+    expect(find.text('Network Name (SSID)'), findsOneWidget);
   });
 
   for (final size in [const Size(1280, 800), const Size(1000, 700)]) {

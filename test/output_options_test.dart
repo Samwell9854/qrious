@@ -99,7 +99,15 @@ void main() {
     await tester.pumpWidget(const QriousApp());
     await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Plain Text').last);
+    // The menu scrolls in this window. The button keeps an offstage copy of
+    // every name, so only a tappable one is the menu's.
+    final item = find.text('Plain Text').hitTestable();
+    await tester.scrollUntilVisible(
+      item,
+      50,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(item);
     await tester.pumpAndSettle();
 
     await tester.enterText(

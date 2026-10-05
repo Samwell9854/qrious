@@ -13,6 +13,9 @@ class VCardFormat extends QrFormat {
   String get name => 'Contact (vCard)';
 
   @override
+  QrFormatGroup get group => QrFormatGroup.contact;
+
+  @override
   IconData get icon => Icons.contact_page_outlined;
 
   // Phones, emails and addresses are groups: none to start with, as many as the

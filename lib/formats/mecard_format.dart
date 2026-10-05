@@ -16,6 +16,9 @@ class MeCardFormat extends QrFormat {
   String get name => 'Contact (MeCard, compact)';
 
   @override
+  QrFormatGroup get group => QrFormatGroup.contact;
+
+  @override
   IconData get icon => Icons.badge_outlined;
 
   @override

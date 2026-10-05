@@ -12,6 +12,9 @@ class EmailFormat extends QrFormat {
   String get name => 'Email';
 
   @override
+  QrFormatGroup get group => QrFormatGroup.message;
+
+  @override
   IconData get icon => Icons.email_outlined;
 
   @override

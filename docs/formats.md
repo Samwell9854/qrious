@@ -9,6 +9,7 @@ abstract class QrFormat {
   String get id;                 // stable slug, e.g. 'wifi'
   String get name;               // label shown in the format dropdown
   IconData get icon;             // shown beside the name in the dropdown
+  QrFormatGroup get group;       // the heading it is listed under
   List<QrField> get fields;      // declarative form description
   String buildQrString(Map<String, String> values);
 }
@@ -43,6 +44,12 @@ class QrKind {
 A **group** is a field the user can repeat: none at first, an *Add* button for another, and a remove button on each. A vCard's phones, emails and addresses are groups, so a contact can have none or several of each, two work emails included. A group with one part shows each entry as one line, with the kind as an icon menu inside the field and named again in its label (`Phone · Mobile`); a group with several parts boxes each entry, with the kind in a notch of the box's top edge. There is no cap on entries: the QR code's own capacity is the limit, and says so.
 
 `fields` should be a `const` list — it is read on every rebuild. That is why `validate` has to be a top-level or static function rather than a closure: only those are constant expressions.
+
+## Groups
+
+The picker lists formats under headings for what scanning the code does, because that is how people choose: "I want them to join my Wi-Fi", not "I want a `WIFI:` payload". `QrFormatGroup` holds the headings in order: *Connect*, *Save a contact*, *Call or message*, *Open*, *Show text*. A heading with no format is not shown, so a new group can be added before its first format lands. The planned ones are *Add to calendar* for events and *Pay* for cryptocurrency.
+
+A code type other than QR (Data Matrix, Aztec, PDF417) would be an output option, not a group: it changes how the content is drawn, not what it is. 1D product barcodes, which carry only a number, would be a group of their own. See [#17](https://github.com/Samwell9854/qrious/issues/17).
 
 ## Value encoding
 
@@ -101,8 +108,8 @@ Escaping rules differ per spec and belong inside the format class:
 ## Adding a format
 
 1. Create `lib/formats/<name>_format.dart` with a class extending `QrFormat`.
-2. Declare `id`, `name`, `icon` (a Material `Icons` constant), a `const` `fields` list, and `buildQrString`.
-3. Register it in `qrFormats` in [lib/formats/registry.dart](../lib/formats/registry.dart) — the list order is the dropdown order.
+2. Declare `id`, `name`, `icon` (a Material `Icons` constant), `group`, a `const` `fields` list, and `buildQrString`.
+3. Register it in `qrFormats` in [lib/formats/registry.dart](../lib/formats/registry.dart), beside the other formats of its group: the picker lists groups in `QrFormatGroup` order, and formats in registry order within each.
 4. Add `test/formats/<name>_format_test.dart` covering the empty map, optional fields omitted when empty, and whatever escaping the spec calls for.
 
 The contract tests read `qrFormats` directly, so step 3 enrols the format in them; there is no second list to keep in step.

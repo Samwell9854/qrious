@@ -11,6 +11,9 @@ class GeoFormat extends QrFormat {
   String get name => 'Location';
 
   @override
+  QrFormatGroup get group => QrFormatGroup.open;
+
+  @override
   IconData get icon => Icons.place_outlined;
 
   @override

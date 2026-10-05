@@ -402,6 +402,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _buildFormatPicker() {
     final colors = Theme.of(context).colorScheme;
+    // The open menu lists formats under a heading per group. A heading is an item
+    // too, disabled and without a value, so it cannot be chosen.
+    final entries = [
+      for (final (group, formats) in qrFormatsByGroup) ...[
+        (group, null),
+        for (final format in formats) (group, format),
+      ],
+    ];
     // Filled rather than outlined like the fields below it: it decides what those
     // fields are, and should not pass for one of them. The same quiet fill as the
     // payload box, with the emphasis on the icon and the name rather than on a
@@ -409,25 +417,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return DropdownButtonFormField<QrFormat>(
       initialValue: _selectedFormat,
       isExpanded: true,
-      // Only the chosen format is emphasised; the open menu stays plain.
+      // Headings are shorter than formats, so items take their own heights.
+      itemHeight: null,
+      // Only the chosen format is emphasised; the open menu stays plain. One
+      // entry per item, headings included, though a heading is never shown here.
       selectedItemBuilder: (context) => [
-        for (final f in qrFormats)
-          Row(
-            children: [
-              Icon(f.icon, size: 20, color: colors.primary),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  f.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w600,
+        for (final (_, f) in entries)
+          if (f == null)
+            const SizedBox.shrink()
+          else
+            Row(
+              children: [
+                Icon(f.icon, size: 20, color: colors.primary),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    f.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
       ],
       iconEnabledColor: colors.onSurfaceVariant,
       dropdownColor: colors.surfaceContainerHigh,
@@ -446,22 +460,39 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           borderSide: BorderSide.none,
         ),
       ),
-      items: qrFormats
-          .map(
-            (f) => DropdownMenuItem(
-              value: f,
-              child: Row(
-                children: [
-                  Icon(f.icon, size: 20),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(f.name, overflow: TextOverflow.ellipsis),
+      items: [
+        for (final (group, f) in entries)
+          if (f == null)
+            DropdownMenuItem<QrFormat>(
+              enabled: false,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  group.label.toUpperCase(),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.primary,
+                    letterSpacing: 1.2,
                   ),
-                ],
+                ),
+              ),
+            )
+          else
+            DropdownMenuItem(
+              value: f,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(start: 8),
+                child: Row(
+                  children: [
+                    Icon(f.icon, size: 20),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(f.name, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
             ),
-          )
-          .toList(),
+      ],
       onChanged: (format) {
         if (format == null) return;
         setState(() {

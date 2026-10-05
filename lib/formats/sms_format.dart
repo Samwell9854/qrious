@@ -12,6 +12,9 @@ class SmsFormat extends QrFormat {
   String get name => 'Text Message (SMS)';
 
   @override
+  QrFormatGroup get group => QrFormatGroup.message;
+
+  @override
   IconData get icon => Icons.sms_outlined;
 
   @override

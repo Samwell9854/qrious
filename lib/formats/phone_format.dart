@@ -12,6 +12,9 @@ class PhoneFormat extends QrFormat {
   String get name => 'Phone Number';
 
   @override
+  QrFormatGroup get group => QrFormatGroup.message;
+
+  @override
   IconData get icon => Icons.phone_outlined;
 
   @override
