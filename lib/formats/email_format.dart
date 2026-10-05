@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart' show Icons, IconData;
+
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import 'validators.dart';
@@ -8,6 +10,9 @@ class EmailFormat extends QrFormat {
 
   @override
   String get name => 'Email';
+
+  @override
+  IconData get icon => Icons.email_outlined;
 
   @override
   List<QrField> get fields => const [

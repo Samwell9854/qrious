@@ -4,7 +4,7 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <name>Qrious</name>
-  <summary>Generate QR codes for WiFi, contacts, URLs, emails, and more</summary>
+  <summary>Generate QR codes for Wi-Fi, contacts, URLs, emails, and more</summary>
   <developer id="io.github.samwell9854">
     <name>Samuel Giroux</name>
   </developer>
@@ -13,7 +13,7 @@
     <p>Save the generated image as a PNG or copy it to the clipboard to share it anywhere. The window adapts from a two-column layout when wide to a single column when narrow.</p>
     <p>Supported formats:</p>
     <ul>
-      <li>WiFi networks</li>
+      <li>Wi-Fi networks</li>
       <li>Contact information as vCards</li>
       <li>URLs</li>
       <li>Email addresses</li>

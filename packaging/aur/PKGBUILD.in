@@ -10,7 +10,7 @@ _version=@VERSION@
 # replaced with "_" so a prerelease sorts below its release in vercmp.
 pkgver=@PKGVER@
 pkgrel=1
-pkgdesc="Generate QR codes for WiFi, contacts, URLs, emails, and more"
+pkgdesc="Generate QR codes for Wi-Fi, contacts, URLs, emails, and more"
 arch=('x86_64')
 url="https://github.com/Samwell9854/qrious"
 license=('GPL-3.0-or-later')

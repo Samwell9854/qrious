@@ -1,6 +1,6 @@
 # Qrious
 
-Flutter app that generates QR codes from structured input. Pick a format (WiFi, vCard, URL, …), fill in its fields, and a QR code plus the raw encoded string render live as you type.
+Flutter app that generates QR codes from structured input. Pick a format (Wi-Fi, vCard, URL, …), fill in its fields, and a QR code plus the raw encoded string render live as you type.
 
 - Flutter 3.47 stable / Dart SDK `^3.11.5`
 - The only platform scaffolded so far is **Linux** (`linux/`). iOS is on indefinite hold — see Known rough edges.
@@ -63,7 +63,7 @@ Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` numbe
 - All field values live in a single `Map<String, String>`; non-text types serialize into strings too (checkbox = `'true'`/`'false'`).
 - `buildQrString` must tolerate missing or empty keys — it is called on every keystroke, including before required fields are filled.
 - Omit optional fields from the payload entirely when empty rather than emitting empty values.
-- Escape and encode per the target spec (`Uri.encodeComponent` for mailto, backslash escaping for the WiFi payload).
+- Escape and encode per the target spec (`Uri.encodeComponent` for mailto, backslash escaping for the Wi-Fi payload).
 - Dart 3 `switch` expressions are used throughout; match that style.
 - **Every layout change has to hold at phone width as well as desktop.** The breakpoint is 700px and both paths are covered by tests — a `RenderFlex` overflow fails the suite.
 - **Markdown is not hard-wrapped: one line per paragraph, list item or table row.** Every reader of these files renders them, and a renderer wraps to the width it has. A hard wrap fixes the text at one column that is right for nobody else's window, and it makes every later edit re-flow the lines below it, so a one-word change arrives as a paragraph-sized diff.

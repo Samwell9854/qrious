@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart' show Icons, IconData;
+
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import 'validators.dart';
@@ -8,6 +10,9 @@ class UrlFormat extends QrFormat {
 
   @override
   String get name => 'URL / Website';
+
+  @override
+  IconData get icon => Icons.link;
 
   @override
   List<QrField> get fields => const [

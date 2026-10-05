@@ -221,7 +221,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         border: OutlineInputBorder(),
       ),
       items: qrFormats
-          .map((f) => DropdownMenuItem(value: f, child: Text(f.name)))
+          .map(
+            (f) => DropdownMenuItem(
+              value: f,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(f.icon, size: 20),
+                  const SizedBox(width: 12),
+                  Text(f.name),
+                ],
+              ),
+            ),
+          )
           .toList(),
       onChanged: (format) {
         if (format == null) return;

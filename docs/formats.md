@@ -8,6 +8,7 @@
 abstract class QrFormat {
   String get id;                 // stable slug, e.g. 'wifi'
   String get name;               // label shown in the format dropdown
+  IconData get icon;             // shown beside the name in the dropdown
   List<QrField> get fields;      // declarative form description
   String buildQrString(Map<String, String> values);
 }
@@ -68,14 +69,14 @@ They are deliberately loose. A validator's job is to reject what a scanner canno
 | `text` | [TextFormat](../lib/formats/text_format.dart) | the text verbatim |
 
 Escaping rules differ per spec and belong inside the format class:
-- WiFi escapes `\ ; , " :` with a backslash (`WifiFormat._escape`).
+- Wi-Fi escapes `\ ; , " :` with a backslash (`WifiFormat._escape`).
 - Email uses `Uri.encodeComponent` on the address and each query param, then restores `@` and `+` in the address — RFC 6068 allows both there, and `%2B` breaks plus-addressing in some clients. The query params keep the full encoding, where `+` can be read as a space.
 - vCard emits `N:` and `FN:` lines; the rest are conditional. Every value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a multiline address from ending its own property.
 
 ## Adding a format
 
 1. Create `lib/formats/<name>_format.dart` with a class extending `QrFormat`.
-2. Declare `id`, `name`, a `const` `fields` list, and `buildQrString`.
+2. Declare `id`, `name`, `icon` (a Material `Icons` constant), a `const` `fields` list, and `buildQrString`.
 3. Register it in `qrFormats` in [lib/formats/registry.dart](../lib/formats/registry.dart) — the list order is the dropdown order.
 4. Add `test/formats/<name>_format_test.dart` covering the empty map, optional fields omitted when empty, and whatever escaping the spec calls for.
 

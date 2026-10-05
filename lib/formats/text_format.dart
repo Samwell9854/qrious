@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart' show Icons, IconData;
+
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 
@@ -7,6 +9,9 @@ class TextFormat extends QrFormat {
 
   @override
   String get name => 'Plain Text';
+
+  @override
+  IconData get icon => Icons.notes;
 
   @override
   List<QrField> get fields => const [

@@ -4,7 +4,7 @@ Everything lives in [lib/screens/home_screen.dart](../lib/screens/home_screen.da
 
 ## State
 
-- `qrFormats` — the registry, imported from [lib/formats/registry.dart](../lib/formats/registry.dart); `qrFormats.first` (WiFi) is the initial selection. The screen holds no format list of its own, which is what keeps adding a format out of this file.
+- `qrFormats` — the registry, imported from [lib/formats/registry.dart](../lib/formats/registry.dart); `qrFormats.first` (Wi-Fi) is the initial selection. The screen holds no format list of its own, which is what keeps adding a format out of this file.
 - `_selectedFormat` — current `QrFormat`.
 - `_values` — `Map<String, String>`, one entry per field of the current format.
 - `_controllers` — `TextEditingController` per *text-like* field only (dropdown and checkbox fields have no controller).

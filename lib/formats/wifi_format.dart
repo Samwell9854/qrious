@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart' show Icons, IconData;
+
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import 'validators.dart';
@@ -7,7 +9,10 @@ class WifiFormat extends QrFormat {
   String get id => 'wifi';
 
   @override
-  String get name => 'WiFi';
+  String get name => 'Wi-Fi';
+
+  @override
+  IconData get icon => Icons.wifi;
 
   @override
   List<QrField> get fields => const [

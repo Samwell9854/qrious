@@ -18,7 +18,7 @@ Each [GitHub release](https://github.com/Samwell9854/qrious/releases) also carri
 
 | Format | Payload |
 | --- | --- |
-| WiFi | `WIFI:` network credentials (WPA/WPA2, WEP, or open; hidden networks supported) |
+| Wi-Fi | `WIFI:` network credentials (WPA/WPA2, WEP, or open; hidden networks supported) |
 | Contact | vCard 3.0 |
 | URL / Website | the URL as-is |
 | Email | `mailto:` with optional subject and body |

@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import 'package:qrious/formats/registry.dart';
 import 'package:qrious/main.dart';
 import 'package:qrious/models/qr_format.dart';
 import 'package:qrious/widgets/app_title.dart';
 import 'package:qrious/widgets/version_badge.dart';
 
 void main() {
-  testWidgets('starts on the WiFi format with no QR code yet', (
+  testWidgets('starts on the Wi-Fi format with no QR code yet', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const QriousApp());
@@ -52,6 +53,26 @@ void main() {
 
     expect(find.byType(QrImageView), findsOneWidget);
     expect(find.text('WIFI:T:WPA;S:MyNetwork;P:;H:false;;'), findsOneWidget);
+  });
+
+  testWidgets('the format picker shows each format beside its icon', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const QriousApp());
+    await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));
+    await tester.pumpAndSettle();
+
+    for (final format in qrFormats) {
+      final row = find.ancestor(
+        of: find.text(format.name).last,
+        matching: find.byType(Row),
+      );
+      expect(
+        find.descendant(of: row.first, matching: find.byIcon(format.icon)),
+        findsOneWidget,
+        reason: format.id,
+      );
+    }
   });
 
   testWidgets('switching format rebuilds the form and clears values', (
