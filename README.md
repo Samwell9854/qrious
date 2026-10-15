@@ -45,7 +45,7 @@ The code can be saved as a file or, on Linux, copied to the clipboard as an imag
 
 ## Running it
 
-Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.41+, Dart `^3.11.5`). Only the Linux desktop target is scaffolded. iOS is on indefinite hold: Apple's paid developer subscription isn't worth it for a free single-purpose app.
+Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.47+, Dart `^3.11.5`). Only the Linux desktop target is scaffolded. iOS is on indefinite hold: Apple's paid developer subscription isn't worth it for a free single-purpose app.
 
 ```bash
 flutter pub get
