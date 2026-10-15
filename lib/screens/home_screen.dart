@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:file_selector/file_selector.dart' show XFile;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../formats/import.dart';
 import '../formats/registry.dart';
 import '../full_screen.dart';
 import '../pixel_size.dart';
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import '../image_clipboard.dart';
+import '../open_image.dart';
+import '../qr_decoding.dart';
 import '../qr_encoding.dart';
 import '../qr_export.dart';
 import '../qr_png.dart';
@@ -25,6 +31,10 @@ class HomeScreen extends StatefulWidget {
     this.copyImage,
     this.setFullScreen,
     this.readPixelSize,
+    this.pickImageFile,
+    this.readClipboardImage,
+    this.clipboardOffersOnlyImage,
+    this.decodeImage,
   });
 
   /// Injectable for tests; the real save dialog when null.
@@ -38,6 +48,18 @@ class HomeScreen extends StatefulWidget {
 
   /// Injectable for tests; the real monitor when null.
   final PixelSizeReader? readPixelSize;
+
+  /// Injectable for tests; the real open dialog when null.
+  final ImageFilePicker? pickImageFile;
+
+  /// Injectable for tests; the real clipboard when null.
+  final ClipboardImageReader? readClipboardImage;
+
+  /// Injectable for tests; the real clipboard when null.
+  final Future<bool> Function()? clipboardOffersOnlyImage;
+
+  /// Injectable for tests; the real decoder, off the UI thread, when null.
+  final Future<List<String>> Function(Uint8List bytes)? decodeImage;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -59,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_onKey);
     _readPixelSize();
     _selectedFormat = qrFormats.first;
     _loadForm();
@@ -120,42 +143,253 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return false;
   }
 
-  /// What the current format held before its last Clear, for Undo and Ctrl+Z.
-  /// Forgotten on a format switch.
-  Map<String, String>? _beforeClear;
+  /// The last replacement of the form's content, for Undo and Ctrl+Z: a Clear, or a
+  /// code read from an image. Forgotten on a format switch.
+  _Replacement? _replacement;
 
   /// The focus node the Ctrl+Z shortcut listens under.
   final FocusNode _screenFocus = FocusNode(debugLabel: 'HomeScreen');
 
+  /// Whether Undo would put back what the replacement removed.
+  ///
+  /// Only while the form still holds exactly what the replacement put there:
+  /// restoring over anything typed since would lose that instead. For a Clear that
+  /// is the empty form, so it means "nothing typed yet"; for a read, the code as
+  /// loaded.
+  bool get _canUndo {
+    final r = _replacement;
+    return r != null &&
+        _selectedFormat == r.toFormat &&
+        mapEquals(_values, r.toValues);
+  }
+
   /// Empties the current format's form, with a way to take it back.
   void _clearForm() {
-    _beforeClear = Map.of(_values);
-    setState(_loadForm);
-    // The field that had focus goes with the Clear, and clicking a button or
+    final from = Map.of(_values);
+    final saved = _saved[_selectedFormat.id];
+    setState(() {
+      _loadForm();
+      _offer = null;
+      _replacement = _Replacement(
+        fromFormat: _selectedFormat,
+        fromValues: from,
+        toFormat: _selectedFormat,
+        toValues: Map.of(_values),
+        toSavedBefore: saved,
+      );
+    });
+    _announceReplacement('Form cleared');
+  }
+
+  /// Hands focus to the screen and offers Undo in a snackbar.
+  void _announceReplacement(String message) {
+    // The field that had focus goes with the replacement, and clicking a button or
     // empty space focuses nothing, so the key would reach no shortcut here.
     _screenFocus.requestFocus();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: const Text('Form cleared'),
+          content: Text(message),
           // A snackbar with an action stays until dismissed by default; this one
           // times out, and Ctrl+Z stays available after it does.
           persist: false,
           duration: const Duration(seconds: 5),
-          action: SnackBarAction(label: 'Undo', onPressed: _undoClear),
+          action: SnackBarAction(label: 'Undo', onPressed: _undo),
         ),
       );
   }
 
-  /// Brings back what the last Clear removed, as long as nothing has been
-  /// typed since: restoring over new input would lose that instead.
-  void _undoClear() {
-    final before = _beforeClear;
-    if (before == null || _hasInput) return;
-    _beforeClear = null;
+  /// Brings back what the last replacement removed, if [_canUndo].
+  void _undo() {
+    final r = _replacement;
+    if (r == null || !_canUndo) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    setState(() => _loadForm(before));
+    setState(() {
+      _replacement = null;
+      _offer = null;
+      // The replacement's format goes back to remembering what it did before, as if
+      // the replacement had never visited it.
+      switch (r.toSavedBefore) {
+        case final saved?:
+          _saved[r.toFormat.id] = saved;
+        case null:
+          _saved.remove(r.toFormat.id);
+      }
+      _selectedFormat = r.fromFormat;
+      _loadForm(r.fromValues);
+    });
+  }
+
+  /// Replaces the form with [result], remembering what it held for Undo.
+  void _applyImport(QrImportResult result) {
+    final toSavedBefore = _saved[result.format.id];
+    final fromFormat = _selectedFormat;
+    final fromValues = Map.of(_values);
+    setState(() {
+      // Saved as a format switch saves it, so the session memory of the format the
+      // read leaves behind is the same either way.
+      _saved[fromFormat.id] = Map.of(_values);
+      _selectedFormat = result.format;
+      _loadForm(result.values);
+      _offer = result.offer;
+      _offerLoaded = Map.of(_values);
+      _replacement = _Replacement(
+        fromFormat: fromFormat,
+        fromValues: fromValues,
+        toFormat: result.format,
+        toValues: Map.of(_values),
+        toSavedBefore: toSavedBefore,
+      );
+    });
+    // No article: format names such as Email and Contact (vCard) take different ones.
+    _announceReplacement('Code read into ${result.format.name}');
+  }
+
+  /// Set while a read is under way, so a second one cannot start beside it.
+  bool _importing = false;
+
+  /// What the last read offers instead of the Text it landed in, shown as a notice
+  /// until it is taken, dismissed, or the text is edited.
+  QrImportOffer? _offer;
+
+  /// What the form held as the read loaded it, to tell when it has been edited.
+  Map<String, String> _offerLoaded = const {};
+
+  /// Ctrl+V reads a pasted image when the clipboard holds one.
+  ///
+  /// Only observes: it always lets the key go on, so a focused text field's own paste
+  /// still runs. That is safe because this acts only when the clipboard offers an
+  /// image and no text at all, which is exactly when a field's paste has nothing to
+  /// paste. A clipboard with both, as a copied spreadsheet range has, pastes its text
+  /// as it always did.
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.keyV ||
+        !HardwareKeyboard.instance.isControlPressed ||
+        _importing ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return false;
+    }
+    _pasteIfOnlyImage();
+    return false;
+  }
+
+  Future<void> _pasteIfOnlyImage() async {
+    final offersImage =
+        widget.clipboardOffersOnlyImage ?? clipboardOffersOnlyImage;
+    if (await offersImage() && mounted && !_importing) _pasteImage();
+  }
+
+  /// Runs [read] as the one read in progress: it returns the image's bytes, or null
+  /// when there is nothing to read, having said why itself.
+  ///
+  /// Nothing escapes it, and [_importing] is always cleared, so a failure can never
+  /// leave the entry points disabled.
+  Future<void> _runImport(Future<Uint8List?> Function() read) async {
+    if (_importing) return;
+    // Taken before the first await, for a context that may be gone by the end.
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _importing = true);
+    try {
+      final bytes = await read();
+      if (bytes != null && mounted) await _importBytes(bytes);
+    } on ImageClipboardException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not read the image: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  void _openImage() => _runImport(widget.pickImageFile ?? pickImageFile);
+
+  void _pasteImage() => _runImport(() async {
+    final bytes = await (widget.readClipboardImage ?? readImageFromClipboard)();
+    if (bytes == null && mounted) _say('The clipboard holds no image.');
+    return bytes;
+  });
+
+  /// Reads the first file dropped on the window; any others are ignored.
+  void _dropImage(List<XFile> files) {
+    if (files.isEmpty) return;
+    _runImport(() => files.first.readAsBytes());
+  }
+
+  void _say(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Decodes [bytes] and loads what it holds, asking first when it holds several.
+  Future<void> _importBytes(Uint8List bytes) async {
+    final decode =
+        widget.decodeImage ?? (bytes) => compute(decodeQrCodes, bytes);
+    final List<String> payloads;
+    try {
+      payloads = await decode(bytes);
+    } on UnreadableImageException {
+      if (mounted) _say("That file isn't an image Qrious can open.");
+      return;
+    }
+    if (!mounted) return;
+
+    switch (payloads) {
+      case []:
+        _say('No QR code found in this image.');
+      case [final only]:
+        _applyImport(importPayload(only));
+      default:
+        final chosen = await _chooseCode(payloads);
+        if (chosen != null && mounted) _applyImport(importPayload(chosen));
+    }
+  }
+
+  /// Lists [payloads] for the user to pick one, each under the format it reads as.
+  Future<String?> _chooseCode(List<String> payloads) {
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Several codes found'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final payload in payloads)
+                _buildCodeChoice(context, payload),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCodeChoice(BuildContext context, String payload) {
+    final result = importPayload(payload);
+    // The format the code is meant for, even when it opens as text.
+    final format = result.offer?.format ?? result.format;
+    return ListTile(
+      leading: Icon(format.icon),
+      title: Text(format.name),
+      subtitle: Text(
+        payload,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: _payloadStyle,
+      ),
+      onTap: () => Navigator.pop(context, payload),
+    );
   }
 
   /// A controller for the text at [key], writing every change back to `_values`.
@@ -163,7 +397,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _values[key] = text;
     final controller = TextEditingController(text: text);
     controller.addListener(() {
-      setState(() => _values[key] = controller.text);
+      setState(() {
+        _values[key] = controller.text;
+        // An edit makes the offer stale: it was made for the text as scanned.
+        if (_offer != null && !mapEquals(_values, _offerLoaded)) _offer = null;
+      });
     });
     _controllers[key] = controller;
   }
@@ -233,6 +471,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_onKey);
     _screenFocus.dispose();
     for (final c in _controllers.values) {
       c.dispose();
@@ -285,19 +524,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // Ctrl+Z undoes the last Clear. The action reports itself disabled whenever
+    // Ctrl+Z undoes the last Clear or read. The action reports itself disabled whenever
     // there is nothing to undo, which lets the key go on to a text field's own
     // undo instead of being swallowed here.
     return Shortcuts(
       shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.keyZ, control: true):
-            _UndoClearIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true): _UndoIntent(),
+        // A text field does not bind Ctrl+O, so the key reaches this from a field.
+        SingleActivator(LogicalKeyboardKey.keyO, control: true):
+            _OpenImageIntent(),
       },
       child: Actions(
         actions: {
-          _UndoClearIntent: _UndoClearAction(
-            canUndo: () => _beforeClear != null && !_hasInput,
-            undo: _undoClear,
+          _UndoIntent: _UndoAction(canUndo: () => _canUndo, undo: _undo),
+          _OpenImageIntent: CallbackAction<_OpenImageIntent>(
+            onInvoke: (_) {
+              _openImage();
+              return null;
+            },
           ),
         },
         child: Focus(
@@ -309,21 +553,98 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// Whether a file is being dragged over the window.
+  bool _dragging = false;
+
   Widget _buildScaffold() {
-    return Scaffold(
-      appBar: AppBar(title: const AppTitle(), centerTitle: false),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= _wideLayoutBreakpoint;
-            final padding = EdgeInsets.all(wide ? 24 : 16);
-            return Padding(
-              padding: padding,
-              child: wide
-                  ? _buildWideLayout()
-                  : _buildNarrowLayout(constraints.deflate(padding).biggest),
-            );
-          },
+    return DropTarget(
+      onDragEntered: (_) => setState(() => _dragging = true),
+      onDragExited: (_) => setState(() => _dragging = false),
+      onDragDone: (details) => _dropImage(details.files),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const AppTitle(),
+          centerTitle: false,
+          actions: [_buildReadMenu(), const SizedBox(width: 8)],
+        ),
+        body: Stack(
+          children: [
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= _wideLayoutBreakpoint;
+                  final padding = EdgeInsets.all(wide ? 24 : 16);
+                  return Padding(
+                    padding: padding,
+                    child: wide
+                        ? _buildWideLayout()
+                        : _buildNarrowLayout(
+                            constraints.deflate(padding).biggest,
+                          ),
+                  );
+                },
+              ),
+            ),
+            if (_dragging) Positioned.fill(child: _buildDropOverlay()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The ways to read a code from an image, behind one button. The shortcuts shown
+  /// are bound elsewhere; the menu only displays them.
+  Widget _buildReadMenu() {
+    return MenuAnchor(
+      menuChildren: [
+        MenuItemButton(
+          onPressed: _importing ? null : _openImage,
+          shortcut: const SingleActivator(
+            LogicalKeyboardKey.keyO,
+            control: true,
+          ),
+          leadingIcon: const Icon(Icons.folder_open_outlined),
+          child: const Text('Open image…'),
+        ),
+        MenuItemButton(
+          onPressed: _importing ? null : _pasteImage,
+          shortcut: const SingleActivator(
+            LogicalKeyboardKey.keyV,
+            control: true,
+          ),
+          leadingIcon: const Icon(Icons.content_paste),
+          child: const Text('Paste image'),
+        ),
+      ],
+      builder: (context, menu, _) => IconButton(
+        icon: const Icon(Icons.qr_code_scanner),
+        tooltip: 'Read a QR code',
+        onPressed: _importing
+            ? null
+            : () => menu.isOpen ? menu.close() : menu.open(),
+      ),
+    );
+  }
+
+  /// Covers the body while a file is dragged over, so the window visibly takes it.
+  Widget _buildDropOverlay() {
+    final colors = Theme.of(context).colorScheme;
+    return IgnorePointer(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.primaryContainer.withValues(alpha: 0.92),
+          border: Border.all(color: colors.primary, width: 2),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'Drop an image to read its QR code',
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: colors.onPrimaryContainer),
         ),
       ),
     );
@@ -344,6 +665,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               children: [
                 _buildFormatRow(),
                 const SizedBox(height: 8),
+                // Above the fields rather than in their scroll view, so it stays
+                // in sight; capped, with its own scroll, so a long list of what
+                // was dropped cannot push the fields out of a short window.
+                if (_offer case final offer?)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: SingleChildScrollView(
+                      child: _buildImportNotice(offer),
+                    ),
+                  ),
                 Expanded(
                   child: SingleChildScrollView(
                     // Most of the gap below the picker sits inside the scroll
@@ -377,10 +708,75 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           _buildFormatRow(),
           const SizedBox(height: 20),
+          if (_offer case final offer?) _buildImportNotice(offer),
           ..._selectedFormat.fields.map(_buildField),
           const SizedBox(height: 8),
           _buildQrPanel(qrSize: qrSize),
         ],
+      ),
+    );
+  }
+
+  /// Says why a code opened as text, and offers the form that claimed it.
+  Widget _buildImportNotice(QrImportOffer offer) {
+    final colors = Theme.of(context).colorScheme;
+    final name = offer.format.name;
+    final reasons = [
+      if (offer.unsupported.isNotEmpty) 'hold ${offer.unsupported.join(', ')}',
+      for (final entry in offer.invalid) 'accept $entry',
+      // Neither lost nor rejected: the form's own layout is what differs.
+      if (offer.unsupported.isEmpty && offer.invalid.isEmpty)
+        'write it the same way — it lays the same content out differently, '
+            'which makes a different code',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.secondaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 4, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recognised as $name',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colors.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Opened as plain text, which keeps it exactly as scanned, because '
+                      'the $name form cannot ${reasons.join('; ')}.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: () => _applyImport(
+                        QrImportResult(offer.format, offer.values),
+                      ),
+                      child: Text('Open in $name form'),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                tooltip: 'Dismiss',
+                onPressed: () => setState(() => _offer = null),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -496,7 +892,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       onChanged: (format) {
         if (format == null) return;
         setState(() {
-          _beforeClear = null;
+          _replacement = null;
+          _offer = null;
           _saved[_selectedFormat.id] = Map.of(_values);
           _selectedFormat = format;
           _loadForm(_saved[format.id]);
@@ -1012,6 +1409,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// the dense hint wrapped over several lines in a narrow panel.
   static const double _minCodeArea = 200 + 2 * _codeBoxPadding + 120;
 
+  /// The payload's type. Named fonts before the generic family: on a system with a
+  /// Japanese font such as MS Gothic installed, "monospace" can resolve to one that
+  /// draws the backslash as a yen sign, and a backslash is often part of the payload.
+  static const TextStyle _payloadStyle = TextStyle(
+    fontFamily: 'Noto Sans Mono',
+    fontFamilyFallback: ['DejaVu Sans Mono', 'Liberation Mono', 'monospace'],
+    fontSize: 13,
+  );
+
   /// About eight lines of the payload before its box scrolls.
   static const double _maxDataHeight = 150;
 
@@ -1104,19 +1510,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: SingleChildScrollView(
                     child: SelectableText(
                       ready ? qrString : '—',
-                      style: const TextStyle(
-                        // Named fonts before the generic family: on a system with
-                        // a Japanese font such as MS Gothic installed, "monospace"
-                        // can resolve to one that draws the backslash as a yen
-                        // sign, and a backslash is often part of the payload.
-                        fontFamily: 'Noto Sans Mono',
-                        fontFamilyFallback: [
-                          'DejaVu Sans Mono',
-                          'Liberation Mono',
-                          'monospace',
-                        ],
-                        fontSize: 13,
-                      ),
+                      style: _payloadStyle,
                     ),
                   ),
                 ),
@@ -1167,19 +1561,50 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 }
 
-class _UndoClearIntent extends Intent {
-  const _UndoClearIntent();
+/// What a replacement of the form took out and put in, for Undo.
+///
+/// A Clear replaces a format's content with an empty form of the same format; a read
+/// can replace it with another format's. Both are the same move, so both undo the
+/// same way.
+class _Replacement {
+  const _Replacement({
+    required this.fromFormat,
+    required this.fromValues,
+    required this.toFormat,
+    required this.toValues,
+    required this.toSavedBefore,
+  });
+
+  /// The format and values the form held before.
+  final QrFormat fromFormat;
+  final Map<String, String> fromValues;
+
+  /// The format and values the replacement put there; Undo applies only while the
+  /// form still holds them.
+  final QrFormat toFormat;
+  final Map<String, String> toValues;
+
+  /// What the session memory held for [toFormat] before, null for nothing.
+  final Map<String, String>? toSavedBefore;
 }
 
-class _UndoClearAction extends Action<_UndoClearIntent> {
-  _UndoClearAction({required this.canUndo, required this.undo});
+class _OpenImageIntent extends Intent {
+  const _OpenImageIntent();
+}
+
+class _UndoIntent extends Intent {
+  const _UndoIntent();
+}
+
+class _UndoAction extends Action<_UndoIntent> {
+  _UndoAction({required this.canUndo, required this.undo});
 
   final bool Function() canUndo;
   final VoidCallback undo;
 
   @override
-  bool isEnabled(_UndoClearIntent intent) => canUndo();
+  bool isEnabled(_UndoIntent intent) => canUndo();
 
   @override
-  void invoke(_UndoClearIntent intent) => undo();
+  void invoke(_UndoIntent intent) => undo();
 }

@@ -31,7 +31,10 @@ void main() {
     // Flutter paints the debug ribbon across the top right corner, so the badge
     // belongs in the app bar's title, not in its actions.
     final appBar = tester.widget<AppBar>(find.byType(AppBar));
-    expect(appBar.actions ?? const <Widget>[], isEmpty);
+    expect(
+      appBar.actions ?? const <Widget>[],
+      isNot(contains(isA<VersionBadge>())),
+    );
     expect(
       find.descendant(
         of: find.byType(AppTitle),
