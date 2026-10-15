@@ -117,4 +117,167 @@ void main() {
       skip: reader == null,
     );
   });
+
+  group('chooseClipboardReader', () {
+    test('prefers wl-paste in a Wayland session', () {
+      final helper = chooseClipboardReader({
+        'WAYLAND_DISPLAY': 'wayland-0',
+        'DISPLAY': ':0',
+      }, installed(['wl-paste', 'xclip']));
+      expect(helper?.executable, 'wl-paste');
+    });
+
+    test('falls back to xclip under XWayland when wl-paste is missing', () {
+      final helper = chooseClipboardReader({
+        'WAYLAND_DISPLAY': 'wayland-0',
+        'DISPLAY': ':0',
+      }, installed(['xclip']));
+      expect(helper?.executable, 'xclip');
+    });
+
+    test('uses xclip on plain X11', () {
+      final helper = chooseClipboardReader({
+        'DISPLAY': ':0',
+      }, installed(['xclip']));
+      expect(helper?.executable, 'xclip');
+    });
+
+    test('gives up when nothing usable is installed', () {
+      expect(
+        chooseClipboardReader({
+          'WAYLAND_DISPLAY': 'wayland-0',
+          'DISPLAY': ':0',
+        }, installed(['xsel'])),
+        isNull,
+      );
+    });
+
+    test('gives up when there is no display at all', () {
+      expect(
+        chooseClipboardReader({}, installed(['wl-paste', 'xclip'])),
+        isNull,
+      );
+    });
+
+    test('treats an empty display variable as unset', () {
+      expect(
+        chooseClipboardReader({
+          'WAYLAND_DISPLAY': '',
+          'DISPLAY': '',
+        }, installed(['wl-paste', 'xclip'])),
+        isNull,
+      );
+    });
+
+    test('lists types with the helper\'s own flags', () {
+      final wayland = chooseClipboardReader({
+        'WAYLAND_DISPLAY': 'wayland-0',
+      }, installed(['wl-paste']));
+      expect(wayland?.listArguments, ['--list-types']);
+
+      final x11 = chooseClipboardReader({
+        'DISPLAY': ':0',
+      }, installed(['xclip']));
+      expect(x11?.listArguments, [
+        '-selection',
+        'clipboard',
+        '-t',
+        'TARGETS',
+        '-o',
+      ]);
+    });
+
+    test('reads one type as raw bytes with the helper\'s own flags', () {
+      final wayland = chooseClipboardReader({
+        'WAYLAND_DISPLAY': 'wayland-0',
+      }, installed(['wl-paste']));
+      expect(wayland?.readArguments('image/png'), [
+        '--no-newline',
+        '--type',
+        'image/png',
+      ]);
+
+      final x11 = chooseClipboardReader({
+        'DISPLAY': ':0',
+      }, installed(['xclip']));
+      expect(x11?.readArguments('image/jpeg'), [
+        '-selection',
+        'clipboard',
+        '-t',
+        'image/jpeg',
+        '-o',
+      ]);
+    });
+  });
+
+  group('pickImageType', () {
+    test('prefers image/png over other image types', () {
+      expect(
+        pickImageType(['image/jpeg', 'image/png', 'text/plain']),
+        'image/png',
+      );
+    });
+
+    test('takes the first image type when there is no png', () {
+      expect(
+        pickImageType(['text/html', 'image/jpeg', 'image/webp']),
+        'image/jpeg',
+      );
+    });
+
+    test('is null with only text', () {
+      expect(pickImageType(['text/plain', 'UTF8_STRING']), isNull);
+    });
+  });
+
+  group('offersOnlyImage', () {
+    test('is true for an image with nothing else', () {
+      expect(offersOnlyImage(['image/png']), isTrue);
+    });
+
+    test('is false when a text/plain variant is offered alongside', () {
+      expect(
+        offersOnlyImage(['image/png', 'text/plain;charset=utf-8']),
+        isFalse,
+      );
+    });
+
+    test('is false when an X11 text target is offered alongside', () {
+      expect(offersOnlyImage(['image/png', 'UTF8_STRING']), isFalse);
+    });
+
+    test('is false for text only', () {
+      expect(offersOnlyImage(['text/plain', 'STRING', 'TEXT']), isFalse);
+    });
+
+    test('is false for an empty clipboard', () {
+      expect(offersOnlyImage([]), isFalse);
+    });
+  });
+
+  group('readImageFromClipboard', () {
+    bool onPath(String executable) =>
+        Process.runSync('which', [executable]).exitCode == 0;
+
+    final copier = chooseClipboardHelper(Platform.environment, onPath);
+    final reader = chooseClipboardReader(Platform.environment, onPath);
+
+    testWidgets(
+      'reads back the PNG that copyPngToClipboard put on the clipboard',
+      (tester) async {
+        await tester.runAsync(() async {
+          final bytes = await renderQrPng(
+            encodeQr('https://example.com', ErrorCorrection.auto),
+            size: ImageSize.small,
+          );
+          await copyPngToClipboard(bytes);
+
+          expect(await readImageFromClipboard(), bytes);
+          expect(await clipboardOffersOnlyImage(), isTrue);
+        });
+      },
+      // Skipped where the session has no clipboard helper at all, as above.
+      skip: copier == null || reader == null,
+    );
+  });
 }
