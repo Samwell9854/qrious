@@ -47,7 +47,7 @@ A **group** is a field the user can repeat: none at first, an *Add* button for a
 
 ## Groups
 
-The picker lists formats under headings for what scanning the code does, because that is how people choose: "I want them to join my Wi-Fi", not "I want a `WIFI:` payload". `QrFormatGroup` holds the headings in order: *Connect*, *Save a contact*, *Call or message*, *Open*, *Show text*. A heading with no format is not shown, so a new group can be added before its first format lands. The planned ones are *Add to calendar* for events and *Pay* for cryptocurrency.
+The picker lists formats under headings for what scanning the code does, because that is how people choose: "I want them to join my Wi-Fi", not "I want a `WIFI:` payload". `QrFormatGroup` holds the headings in order: *Connect*, *Contact*, *Call or message*, *Web & maps*, *Show text*. A heading with no format is not shown, so a new group can be added before its first format lands. The planned ones are *Add to calendar* for events and *Pay* for cryptocurrency.
 
 A code type other than QR (Data Matrix, Aztec, PDF417) would be an output option, not a group: it changes how the content is drawn, not what it is. 1D product barcodes, which carry only a number, would be a group of their own. See [#17](https://github.com/Samwell9854/qrious/issues/17).
 

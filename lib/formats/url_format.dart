@@ -12,7 +12,7 @@ class UrlFormat extends QrFormat {
   String get name => 'URL / Website';
 
   @override
-  QrFormatGroup get group => QrFormatGroup.open;
+  QrFormatGroup get group => QrFormatGroup.web;
 
   @override
   IconData get icon => Icons.link;

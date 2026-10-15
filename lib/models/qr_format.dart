@@ -7,9 +7,9 @@ import 'qr_field.dart';
 /// The picker lists groups in this order and shows only those with a format.
 enum QrFormatGroup {
   connect('Connect'),
-  contact('Save a contact'),
+  contact('Contact'),
   message('Call or message'),
-  open('Open'),
+  web('Web & maps'),
   text('Show text');
 
   const QrFormatGroup(this.label);

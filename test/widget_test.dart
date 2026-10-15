@@ -95,7 +95,7 @@ void main() {
     await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('SAVE A CONTACT'), warnIfMissed: false);
+    await tester.tap(find.text('CONTACT'), warnIfMissed: false);
     await tester.pumpAndSettle();
     // Still on Wi-Fi, whether or not the menu stayed open.
     expect(find.text('Network Name (SSID)'), findsOneWidget);
