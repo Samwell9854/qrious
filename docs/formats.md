@@ -12,6 +12,12 @@ abstract class QrFormat {
   QrFormatGroup get group;       // the heading it is listed under
   List<QrField> get fields;      // declarative form description
   String buildQrString(Map<String, String> values);
+  QrParsed? parse(String payload); // the inverse, for importing a scanned code
+}
+
+class QrParsed {
+  final Map<String, String> values;  // what the form would load
+  final List<String> unsupported;    // parts of the payload the form has no field for
 }
 ```
 
@@ -83,6 +89,22 @@ Both contact formats take the address as separate parts, from the shared `addres
 
 The unit tests check payloads against the specs; what a phone does with them is a separate question, and readers differ. Scan results recorded in these docs and in code comments come from the **iPhone camera app**, the reader most people will try first. It reads vCard faithfully, `ADR` components included; it does not undo MeCard's backslash escapes; and it guesses at the parts of a one-line address. Where a reader and a spec disagree, follow the spec unless the reader's behaviour breaks something the user can see, and record which reader it was.
 
+## Importing
+
+`parse` is the inverse of `buildQrString`, used when a code is read from an image (see [ui.md](ui.md#reading-a-code)). It returns null when the payload is not this format's, and otherwise the values to load into the form, in the same shape `buildQrString` reads, with group entries expanded under their `<group>.<i>.<part>` keys.
+
+Returning values is a **claim**: "this payload is mine". A format claims only what is unmistakably its own, by prefix (`WIFI:`, `MECARD:`, `BEGIN:VCARD`, `mailto:`, `tel:`, `SMSTO:`, `geo:`), ignoring case. The URL format claims only `http://` and `https://`, since other schemes (`ftp:`, an app's own) are not something its form would write back. **Text claims nothing**: it is what the importer falls back to for a payload nobody claims, so it cannot also be a format that recognises.
+
+A claim does not promise the form can hold everything. `unsupported` lists, named the way the payload names them, what the form has nowhere to put: a vCard's PO box or a second `ORG` unit, a Wi-Fi code's keys beyond the ones its form has. It is empty when everything found a field.
+
+[importPayload](../lib/formats/import.dart) asks the formats in registry order, Text excluded, and the first to claim the payload decides. The payload opens in that format only when the form reproduces it exactly, which takes all of:
+
+- `buildQrString` rebuilds the identical payload from the values `parse` read,
+- `unsupported` is empty, and
+- no validator rejects a value that was read, since a form that opens with an error is no use for editing and holds the QR code back.
+
+Otherwise it opens in Text, byte for byte, with the claiming format as an offer the user can take. Text is the fallback because it is the only form that cannot change a payload: a scanned code is rarely Qrious's own, and quietly rewriting it, by reordering a Wi-Fi code's keys or dropping a `NOTE`, would make a different code. Content that loses nothing but is laid out differently falls under the same rule, because the rebuilt payload is a different code. The helpers `parse` implementations share (prefix matching, unescaping, splitting) are in [lib/formats/parsing.dart](../lib/formats/parsing.dart).
+
 ## Supported formats
 
 | id | Class | Payload |
@@ -108,10 +130,10 @@ Escaping rules differ per spec and belong inside the format class:
 ## Adding a format
 
 1. Create `lib/formats/<name>_format.dart` with a class extending `QrFormat`.
-2. Declare `id`, `name`, `icon` (a Material `Icons` constant), `group`, a `const` `fields` list, and `buildQrString`.
+2. Declare `id`, `name`, `icon` (a Material `Icons` constant), `group`, a `const` `fields` list, `buildQrString`, and `parse` (return null for anything that is not unmistakably the format's own; see [Importing](#importing)).
 3. Register it in `qrFormats` in [lib/formats/registry.dart](../lib/formats/registry.dart), beside the other formats of its group: the picker lists groups in `QrFormatGroup` order, and formats in registry order within each.
-4. Add `test/formats/<name>_format_test.dart` covering the empty map, optional fields omitted when empty, and whatever escaping the spec calls for.
+4. Add `test/formats/<name>_format_test.dart` covering the empty map, optional fields omitted when empty, whatever escaping the spec calls for, and what `parse` claims and refuses.
 
-The contract tests read `qrFormats` directly, so step 3 enrols the format in them; there is no second list to keep in step.
+The contract tests read `qrFormats` directly, so step 3 enrols the format in them; there is no second list to keep in step. They also check that every format reads its own output back: what `buildQrString` makes, `parse` claims and returns to the same payload, and that no format claims another's output.
 
 No UI changes are needed — the screen imports the registry, not the formats. If a format genuinely needs a widget the six `QrFieldType` values cannot express, add the enum case *and* its branch in `_buildField`, plus its initial value in `_loadForm` and its default in `_hasInput`; otherwise leave them alone.

@@ -31,8 +31,8 @@ depends=(
   'zlib'
 )
 optdepends=(
-  'wl-clipboard: copy the QR image on Wayland'
-  'xclip: copy the QR image on X11'
+  'wl-clipboard: copy and paste QR images on Wayland'
+  'xclip: copy and paste QR images on X11'
 )
 provides=('qrious')
 conflicts=('qrious')

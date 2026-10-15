@@ -4,7 +4,7 @@ Flutter app that generates QR codes from structured input. Pick a format (Wi-Fi,
 
 - Flutter 3.47 stable / Dart SDK `^3.11.5`
 - The only platform scaffolded so far is **Linux** (`linux/`). iOS is on indefinite hold — see Known rough edges.
-- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing).
+- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels), `desktop_drop` (dropping an image file on the window).
 
 ## Commands
 
@@ -23,7 +23,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | --- | --- |
 | [lib/main.dart](lib/main.dart) | `QriousApp` — MaterialApp, Material 3, indigo seed, light + dark themes |
 | [lib/models/](lib/models/) | `QrFormat` interface and `QrField` descriptor |
-| [lib/formats/](lib/formats/) | One file per supported QR format, plus `registry.dart` (the list the UI reads) and `validators.dart` (rules shared across formats) |
+| [lib/formats/](lib/formats/) | One file per supported QR format, plus `registry.dart` (the list the UI reads), `validators.dart` (rules shared across formats), `import.dart` (where a scanned payload lands: its format, or Text with an offer) and `parsing.dart` (helpers the formats' `parse` share) |
 | [lib/screens/home_screen.dart](lib/screens/home_screen.dart) | The whole UI: format picker, generated form, QR preview |
 | [lib/widgets/version_badge.dart](lib/widgets/version_badge.dart) | The version chip in the app bar |
 | [lib/widgets/full_screen_qr.dart](lib/widgets/full_screen_qr.dart), [lib/full_screen.dart](lib/full_screen.dart), [lib/pixel_size.dart](lib/pixel_size.dart) | The code alone at the size of the screen, for scanning; taking the whole screen for it, and reading how large a pixel is to judge when to offer it (a channel the Linux runner answers) |
@@ -31,7 +31,9 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/qr_png.dart](lib/qr_png.dart), [lib/qr_svg.dart](lib/qr_svg.dart) | Render the encoded code to a PNG or an SVG for saving — black on white, with a quiet zone, sized in pixels per module |
 | [lib/qr_export.dart](lib/qr_export.dart) | The file types Save offers, their rendering and extensions, and the suggested filename |
 | [lib/save_location.dart](lib/save_location.dart) | The save dialog, behind a typedef the screen can stub in tests |
-| [lib/image_clipboard.dart](lib/image_clipboard.dart) | Copies a PNG to the clipboard by piping it to `wl-copy` or `xclip` |
+| [lib/image_clipboard.dart](lib/image_clipboard.dart) | Copies a PNG to the clipboard by piping it to `wl-copy` or `xclip`, and reads an image back with `wl-paste` or `xclip` |
+| [lib/qr_decoding.dart](lib/qr_decoding.dart) | Reads the QR codes in an image file: zxing2 with two binarizers and three scales, finding several codes per image |
+| [lib/open_image.dart](lib/open_image.dart) | The open-image dialog, behind a typedef the screen can stub in tests |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |
 | [tool/](tool/) | Release tooling — the version format rule, the tagging script, and the build-number bump |
 | [packaging/](packaging/) | The desktop entry and AppStream metadata, and in `aur/` the `qrious-bin` PKGBUILD template with `render.sh`, which fills it from a release tarball — rendered copies live outside this repo. Rationale: [docs/packaging.md](docs/packaging.md) |
@@ -75,5 +77,5 @@ Calendar versioning (`yyyy.m.micro`), the `-alpha.N` counter, the `+build` numbe
 
 ## Known rough edges
 
-- **Copying the QR image is Linux-only.** It shells out to `wl-copy` or `xclip`, because Flutter's `Clipboard` carries text only. iOS would need a platform channel or `super_clipboard` (which requires a Rust toolchain); the whole thing sits behind `copyPngToClipboard` so the swap is cheap if iOS ever happens.
+- **Copying and reading the QR image is Linux-only.** Copying shells out to `wl-copy` or `xclip` and reading to `wl-paste` or `xclip`, because Flutter's `Clipboard` carries text only. iOS would need a platform channel or `super_clipboard` (which requires a Rust toolchain); the whole thing sits behind `copyPngToClipboard` and `readImageFromClipboard` so the swap is cheap if iOS ever happens.
 - **iOS is on indefinite hold.** There is no `ios/` directory. Apple's Developer Program is a paid annual subscription (~$120 CAD/year), which isn't worth it for a free single-purpose app; free sideloading via a personal Apple ID exists but expires every 7 days and requires re-signing from a Mac, which isn't a viable distribution path either. Linux remains the primary target. Revisit only if the cost/reach tradeoff changes.

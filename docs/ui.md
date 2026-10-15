@@ -8,18 +8,19 @@ Everything lives in [lib/screens/home_screen.dart](../lib/screens/home_screen.da
 - `_selectedFormat` — current `QrFormat`.
 - `_values` — `Map<String, String>`, one entry per field of the current format.
 - `_controllers` — `TextEditingController` per *text-like* field only (dropdown and checkbox fields have no controller).
+- `_replacement` — the last Clear or read, kept for Undo; `_offer` — the notice a read leaves behind when its code opened as text (see [Reading a code](#reading-a-code)).
 - `_errorCorrection` and `_imageSize` — the output choices under the preview, `auto` and `medium` to start. A format switch keeps them: they describe the output, not the content.
 
 `_loadForm([saved])` is the reset point: it disposes old controllers, clears both maps, then seeds each field from `saved`, or with its initial value without it, and attaches a listener that writes controller text back into `_values` and calls `setState`. It runs in `initState` and on every format switch.
 
 A format switch first copies `_values` into `_saved` under the old format's id, then loads the new format from whatever `_saved` holds for it. So each format remembers its values for the session, and picking the wrong format by mistake costs nothing: switching back restores the form. Nothing is written to disk; closing the app forgets it all.
 
-The **Clear** button beside the picker (`_buildFormatRow`) empties the current format only, and is enabled only while `_hasInput` says something differs from a fresh form. It is a word, not an icon: no icon says "empty this form" plainly (`clear_all` was tried, and is known only from Android's notification shade). It asks nothing first, because a confirmation would add a click to every deliberate clear; instead it keeps the snapshot in `_beforeClear` and offers two ways back:
+The **Clear** button beside the picker (`_buildFormatRow`) empties the current format only, and is enabled only while `_hasInput` says something differs from a fresh form. It is a word, not an icon: no icon says "empty this form" plainly (`clear_all` was tried, and is known only from Android's notification shade). It asks nothing first, because a confirmation would add a click to every deliberate clear; instead it keeps a snapshot in `_replacement` and offers two ways back. Reading a code replaces the form's content too, so a Clear and a read share the one snapshot (see [Undo](#undo-a-read)):
 
 - *Undo* in the snackbar. A snackbar with an action stays until dismissed by default, so this one sets `persist: false` and leaves after five seconds.
 - **Ctrl+Z**, through a `Shortcuts`/`Actions` pair around the scaffold. Clear hands focus to the screen's own node: the field that had focus goes with the Clear, and a click on a button or on empty space focuses nothing, so the key would otherwise reach no shortcut here. The action is enabled only while there is a Clear to undo and the form is still empty; otherwise it reports itself disabled and the key goes on to a focused text field's own undo, which a `CallbackShortcuts` would have swallowed.
 
-Either way, an undo is refused once something has been typed since the Clear, since restoring would lose that input instead. A format switch forgets the snapshot.
+`_replacement` is a `_Replacement`: the format and values the replacement removed, the format and values it put there, and what the session memory held for the format it went into. `_canUndo` allows an undo only while the form still holds exactly what the replacement put there, so for a Clear it means "nothing typed yet", and for a read, the code as loaded. Once something has been typed since, restoring would lose that input instead, so the undo is refused. A format switch forgets the snapshot.
 
 The picker itself is filled, unlike the outlined fields under it, because it decides what those fields are and should not pass for one of them. The fill is the same quiet `surfaceContainerHighest` as the payload box, and the emphasis is on the format's icon, in the primary colour, and its name in bold; the open menu stays plain. The menu lists formats under their groups' headings (see [formats.md](formats.md#groups)). A heading is a disabled item with no value, so it cannot be picked, and `selectedItemBuilder` gives it an empty entry to keep its list in step with the items.
 
@@ -85,7 +86,44 @@ Copying goes around Flutter entirely. `Clipboard.setData` carries `text/plain` a
 
 This is a **Linux-only stopgap**. iOS has an image clipboard that Flutter does not expose, so it will need a platform channel or a package like `super_clipboard`, which works everywhere but requires a Rust toolchain — a cost worth paying once there is a second platform to pay it for, not before. Everything is behind one function to keep that swap cheap.
 
-`HomeScreen` takes `pickSaveLocation` and `copyImage` seams, defaulted to the real dialog and the real clipboard. Those are the parts that cannot run headless; rendering, writing and the helper choice are exercised for real in [test/save_qr_test.dart](../test/save_qr_test.dart), [test/copy_image_test.dart](../test/copy_image_test.dart) and [test/image_clipboard_test.dart](../test/image_clipboard_test.dart) — the last of which round-trips a PNG through the actual clipboard when a helper is present, and skips itself when there is not one.
+`HomeScreen` takes `pickSaveLocation` and `copyImage` seams, defaulted to the real dialog and the real clipboard, and for reading a code `pickImageFile`, `readClipboardImage`, `clipboardOffersOnlyImage` and `decodeImage`. Those are the parts that cannot run headless; rendering, writing and the helper choice are exercised for real in [test/save_qr_test.dart](../test/save_qr_test.dart), [test/copy_image_test.dart](../test/copy_image_test.dart) and [test/image_clipboard_test.dart](../test/image_clipboard_test.dart) — the last of which round-trips a PNG through the actual clipboard when a helper is present, and skips itself when there is not one.
+
+## Reading a code
+
+The app bar's **Read a QR code** button opens a menu with two of the three ways to bring a code in from outside; the third has no control.
+
+- **Open image…** (Ctrl+O) opens a file dialog through [pickImageFile](../lib/open_image.dart). The shortcut sits beside Ctrl+Z in the screen's `Shortcuts`, and a text field binds neither, so the key reaches it from a field.
+- **Paste image** (Ctrl+V) reads the image on the clipboard.
+- **Drop** an image file anywhere on the window. A `DropTarget` ([desktop_drop](https://pub.dev/packages/desktop_drop)) covers the screen and a "Drop an image to read its QR code" overlay shows while a file is over it. Only the first file is read; the others are ignored.
+
+All three go through `_runImport`, which allows one read at a time and clears its `_importing` flag whatever happens, so a failure can never leave the entry points disabled. A file that is not an image, an image with no code in it, and a clipboard with no image each say so in a snackbar.
+
+### Ctrl+V
+
+There is no step to arm before pasting. The clipboard labels its contents by type, and `_onKey` watches Ctrl+V through `HardwareKeyboard` and acts only when [clipboardOffersOnlyImage](../lib/image_clipboard.dart) says the clipboard holds an image and no text. That is exactly when a text field's own paste would have had nothing to paste, so the import never takes a paste away from a field. A clipboard with both, as a copied spreadsheet range has, pastes its text as it always did.
+
+The observer only watches: it returns false, so the key goes on to the focused field either way. It stays out of the way of dialogs (it checks that the screen's route is current) and of a read already under way.
+
+### Several codes
+
+A picture can hold more than one code. When it does, a dialog lists them, each under the name of the format it reads as with its payload below, and the pick is read as if it were the only one. Cancelling reads nothing. How the codes are found is in [lib/qr_decoding.dart](../lib/qr_decoding.dart): [zxing2](https://pub.dev/packages/zxing2), a port of ZXing, tried with its hybrid binarizer and then its global-histogram one, each at full size, half and a quarter, with a port of ZXing's multiple-barcode reader to find the rest. The two binarizers fail on different pictures: the hybrid one failed on a real printed, photographed code with speckle that the global-histogram one read. zxing2 also mangles non-ASCII text, which the decoder repairs.
+
+zxing2 was chosen over flutter_zxing because it is pure Dart. There is no native build, and it runs in `flutter test`, so the decoder is tested against real images. It also exposes the module grid, which a later pass needs (below).
+
+### Exact, or Text
+
+What a read loads is decided by [importPayload](../lib/formats/import.dart), whose rule is in [formats.md](formats.md#importing). The screen shows its outcome in one of two ways.
+
+- When a format reproduces the payload exactly, the form opens in that format with the values filled in, and the snackbar says "Code read into <format>".
+- Otherwise the payload opens in **Text**, byte for byte, and a notice above the fields says "Recognised as <format>" and why the text was kept: what that form would drop, what it would reject, or, when nothing would be lost, that it lays the same content out differently, which makes a different code. Its **Open in <format> form** button loads the values the form can hold, trading exactness for fields; the close button dismisses it. The notice also goes away when the text is edited, since it was made for the text as scanned.
+
+Text is the fallback because it is the only form that cannot change a payload. A scanned code is rarely Qrious's own, and quietly rewriting it (reordering the keys of a Wi-Fi code, dropping a vCard's `NOTE`) would make a different code. A payload with nothing lost but laid out differently lands in Text for the same reason. A form that preserves another generator's exact layout, and reproducing a scanned code module for module (the version, mode and mask are not in the decoded text, which alone does not fix the pattern), are a later expert pass on [#4](https://github.com/Samwell9854/qrious/issues/4), alongside [#13](https://github.com/Samwell9854/qrious/issues/13). The camera is another pass.
+
+### Undo a read
+
+A read replaces what the form held, so it takes the same snapshot as a Clear and offers the same two ways back: *Undo* in the snackbar and Ctrl+Z. `_applyImport` also saves the format the read leaves, as a format switch does, and Undo puts back the session memory of the format the code was read into, as if the read had never visited it. Taking the notice's **Open in <format> form** is a second replacement, with its own Undo.
+
+Reading the clipboard is the same Linux-only stopgap as copying to it, for the same reason: Flutter's `Clipboard` carries text only. [clipboardTypes and readImageFromClipboard](../lib/image_clipboard.dart) ask `wl-paste` on Wayland and `xclip` on X11, with the same fall-through to `xclip` under XWayland, and the swap for iOS stays behind the same functions.
 
 ## The version badge
 
