@@ -2,7 +2,40 @@
 
 What each release changes, for the people using the app. Each section becomes that version's GitHub release notes, so it is written before the release is tagged. Earlier releases predate this file.
 
-## 2026.10.1
+## 2026.10.2
+
+A full-screen view for scanning, three new formats, and contacts with as many phones, emails and addresses as you need.
+
+### Scanning from the screen
+
+- **Show the code full screen** by clicking or tapping it, at the largest size the screen allows. Click anywhere or press Esc to close. ([#11](https://github.com/Samwell9854/qrious/issues/11))
+- When a code is too dense to scan comfortably at its current size, a note under it says so. The threshold is the code's size in millimetres on your actual screen, read from the monitor. ([#11](https://github.com/Samwell9854/qrious/issues/11))
+- The preview now uses the space it has: it grows with the window and stays square at any size.
+
+### Formats
+
+- **New formats:** Text Message (SMS), Location (latitude and longitude), and Contact (MeCard, compact), a contact card that makes a smaller code than a vCard. ([#3](https://github.com/Samwell9854/qrious/issues/3))
+- **The format picker groups formats** by what scanning the code does (Connect, Contact, Call or message, Web & maps, Show text), with an icon beside each.
+- **Each format remembers what you typed** until the app closes, so picking the wrong one by mistake loses nothing. A **Clear** button empties the current format, with Undo, and Ctrl+Z also works afterwards.
+- "WiFi" is now spelled "Wi-Fi".
+
+### Contacts
+
+- **Add as many phones, emails and addresses as you need** to a vCard, each labelled Mobile, Home, Work and so on. None are shown until you add one.
+- The postal address is split into street, city, province or state, postal code and country, so phones import each part into the right place.
+- Phone numbers accept `,` for a pause (an extension, like `+15145550000,274`), and `*` and `#` for service codes. vCard numbers also accept `;` for a wait.
+- Fixed MeCard websites importing as `http://https\://…` on the iPhone.
+
+### Everyday use
+
+- **Show a password** with the eye button beside it.
+- Multi-line fields (plain text, email body) grow as you type.
+- Tab goes through every field before moving to the code panel.
+- A long payload no longer pushes the code off the screen or overflows the window: the panel scrolls instead.
+
+### Issues
+
+Implements #11.
 
 Control over how the code is built, SVG export for print, and a title bar that matches the rest of the desktop.
 
