@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' show Icons, IconData;
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import 'validators.dart';
+import 'parsing.dart';
 
 class PhoneFormat extends QrFormat {
   @override
@@ -31,4 +32,9 @@ class PhoneFormat extends QrFormat {
   @override
   String buildQrString(Map<String, String> values) =>
       'tel:${values['phone'] ?? ''}';
+
+  @override
+  QrParsed? parse(String payload) => hasPrefixIgnoreCase(payload, 'tel:')
+      ? QrParsed({'phone': payload.substring(4)})
+      : null;
 }

@@ -101,4 +101,44 @@ void main() {
       });
     });
   });
+
+  group('EmailFormat.parse', () {
+    test('reads back what it builds', () {
+      final values = {
+        'to': 'a+b@example.com',
+        'subject': 'Hi & bye; 100%',
+        'body': 'Line one\nLine two, ünï',
+      };
+      final parsed = format.parse(format.buildQrString(values))!;
+      expect(parsed.values, values);
+      expect(parsed.unsupported, isEmpty);
+    });
+
+    test('ignores the prefix case', () {
+      expect(format.parse('MAILTO:a@b.co')!.values['to'], 'a@b.co');
+    });
+
+    test('lists headers the form lacks', () {
+      final parsed = format.parse(
+        'mailto:a@b.co?cc=c@d.co&subject=S&bcc=e@f.co&cc=x',
+      )!;
+      expect(parsed.values['subject'], 'S');
+      expect(parsed.unsupported, ['cc', 'bcc']);
+    });
+
+    test('does not throw on malformed input', () {
+      for (final payload in [
+        'mailto:',
+        'mailto:%zz?subject=%',
+        'mailto:?&=&',
+      ]) {
+        expect(() => format.parse(payload), returnsNormally);
+      }
+    });
+
+    test('returns null for another prefix', () {
+      expect(format.parse('https://example.com'), isNull);
+      expect(format.parse('a@b.co'), isNull);
+    });
+  });
 }

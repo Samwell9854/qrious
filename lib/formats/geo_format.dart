@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' show Icons, IconData;
 
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
+import 'parsing.dart';
 
 class GeoFormat extends QrFormat {
   @override
@@ -57,4 +58,29 @@ class GeoFormat extends QrFormat {
 
   static String? validateLongitude(String value) =>
       _validateDegrees(value, 180, 'Longitude runs from -180 to 180');
+
+  /// `geo:<lat>,<lon>[,<altitude>][;<param>...]`. The form holds the two
+  /// coordinates; altitude and parameters such as `u=` (uncertainty) or `crs=` are
+  /// reported as unsupported.
+  @override
+  QrParsed? parse(String payload) {
+    if (!hasPrefixIgnoreCase(payload, 'geo:')) return null;
+    final rest = payload.substring(4);
+    // Some generators append a query (`geo:0,0?q=...`) where the RFC has `;`.
+    final end = rest.indexOf(RegExp(r'[;?]'));
+    final coordinates = (end < 0 ? rest : rest.substring(0, end)).split(',');
+    final unsupported = <String>[];
+    if (coordinates.length > 2) unsupported.add('altitude');
+    if (end >= 0) {
+      for (final param in rest.substring(end + 1).split(RegExp(r'[;&]'))) {
+        if (param.isEmpty) continue;
+        final equals = param.indexOf('=');
+        addOnce(unsupported, equals < 0 ? param : param.substring(0, equals));
+      }
+    }
+    return QrParsed({
+      'latitude': coordinates[0],
+      'longitude': coordinates.length > 1 ? coordinates[1] : '',
+    }, unsupported);
+  }
 }

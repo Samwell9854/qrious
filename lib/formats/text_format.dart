@@ -4,6 +4,9 @@ import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 
 class TextFormat extends QrFormat {
+  /// The one field's id, for the importer to put a payload under.
+  static const fieldId = 'text';
+
   @override
   String get id => 'text';
 
@@ -19,7 +22,7 @@ class TextFormat extends QrFormat {
   @override
   List<QrField> get fields => const [
     QrField(
-      id: 'text',
+      id: fieldId,
       label: 'Text',
       type: QrFieldType.multiline,
       required: true,
@@ -28,4 +31,9 @@ class TextFormat extends QrFormat {
 
   @override
   String buildQrString(Map<String, String> values) => values['text'] ?? '';
+
+  /// Claims nothing: plain text is what the importer falls back to for a payload
+  /// no other format recognises, so it cannot also be a format that recognises.
+  @override
+  QrParsed? parse(String payload) => null;
 }

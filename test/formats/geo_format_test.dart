@@ -46,4 +46,35 @@ void main() {
       }
     });
   });
+
+  group('GeoFormat.parse', () {
+    test('reads back what it builds', () {
+      final parsed = format.parse(
+        format.buildQrString({'latitude': '48.8584', 'longitude': '-2.2945'}),
+      )!;
+      expect(parsed.values, {'latitude': '48.8584', 'longitude': '-2.2945'});
+      expect(parsed.unsupported, isEmpty);
+    });
+
+    test('ignores the prefix case', () {
+      expect(format.parse('GEO:1,2')!.values['longitude'], '2');
+    });
+
+    test('lists an altitude and parameters', () {
+      final parsed = format.parse('geo:1.5,2.5,300;u=35;crs=wgs84')!;
+      expect(parsed.values, {'latitude': '1.5', 'longitude': '2.5'});
+      expect(parsed.unsupported, ['altitude', 'u', 'crs']);
+    });
+
+    test('does not throw on malformed input', () {
+      for (final payload in ['geo:', 'geo:1', 'geo:;;', 'geo:,,,?&']) {
+        expect(() => format.parse(payload), returnsNormally);
+      }
+    });
+
+    test('returns null for another prefix', () {
+      expect(format.parse('https://example.com'), isNull);
+      expect(format.parse('1,2'), isNull);
+    });
+  });
 }

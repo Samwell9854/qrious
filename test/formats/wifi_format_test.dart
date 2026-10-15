@@ -77,4 +77,58 @@ void main() {
       });
     });
   });
+
+  group('WifiFormat.parse', () {
+    test('reads back what it builds, escapes included', () {
+      final values = {
+        'ssid': r'a;b,c:d\e"f',
+        'security': 'WEP',
+        'password': r'p;w:"\,',
+        'hidden': 'true',
+      };
+      final parsed = format.parse(format.buildQrString(values))!;
+      expect(parsed.values, values);
+      expect(parsed.unsupported, isEmpty);
+    });
+
+    test('maps every security type the form offers', () {
+      expect(format.parse('WIFI:T:WPA;S:x;;')!.values['security'], 'WPA/WPA2');
+      expect(format.parse('WIFI:T:WEP;S:x;;')!.values['security'], 'WEP');
+      expect(format.parse('WIFI:T:nopass;S:x;;')!.values['security'], 'None');
+      expect(format.parse('WIFI:S:x;;')!.values['security'], 'None');
+    });
+
+    test('takes the keys in any order and ignores the prefix case', () {
+      final parsed = format.parse('wifi:S:x;T:WPA;P:y;H:TRUE;;')!;
+      expect(parsed.values, {
+        'ssid': 'x',
+        'security': 'WPA/WPA2',
+        'password': 'y',
+        'hidden': 'true',
+      });
+      expect(parsed.unsupported, isEmpty);
+    });
+
+    test('lists keys and security types the form lacks', () {
+      final parsed = format.parse('WIFI:T:SAE;S:x;R:1;E:PEAP;R:2;;')!;
+      expect(parsed.unsupported, ['R', 'E', 'T:SAE']);
+      expect(parsed.values['security'], 'WPA/WPA2');
+    });
+
+    test('does not throw on malformed input', () {
+      for (final payload in [
+        'WIFI:',
+        'WIFI:;;;',
+        r'WIFI:S:x\',
+        'WIFI:junk;:;',
+      ]) {
+        expect(() => format.parse(payload), returnsNormally);
+      }
+    });
+
+    test('returns null for another prefix', () {
+      expect(format.parse('MECARD:N:a;;'), isNull);
+      expect(format.parse('hello'), isNull);
+    });
+  });
 }

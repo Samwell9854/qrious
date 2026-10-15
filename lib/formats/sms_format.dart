@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' show Icons, IconData;
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import 'validators.dart';
+import 'parsing.dart';
 
 class SmsFormat extends QrFormat {
   @override
@@ -37,5 +38,17 @@ class SmsFormat extends QrFormat {
     final phone = (values['phone'] ?? '').trim();
     final message = values['message'] ?? '';
     return message.isEmpty ? 'SMSTO:$phone' : 'SMSTO:$phone:$message';
+  }
+
+  /// The number runs to the first colon, the message is everything after it.
+  @override
+  QrParsed? parse(String payload) {
+    if (!hasPrefixIgnoreCase(payload, 'SMSTO:')) return null;
+    final rest = payload.substring(6);
+    final colon = rest.indexOf(':');
+    return QrParsed({
+      'phone': (colon < 0 ? rest : rest.substring(0, colon)).trim(),
+      'message': colon < 0 ? '' : rest.substring(colon + 1),
+    });
   }
 }

@@ -4,6 +4,7 @@ import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import 'address.dart';
 import 'validators.dart';
+import 'parsing.dart';
 
 /// The compact contact format from NTT DoCoMo. It carries less than a vCard (no
 /// organisation or job title) but spends fewer characters on structure, so the
@@ -80,4 +81,65 @@ class MeCardFormat extends QrFormat {
 
   /// For a value inside `N:` or `ADR:`, where a comma separates components.
   String _escapeComponent(String s) => _escape(s).replaceAll(',', r'\,');
+
+  /// Undoes [_escape] and [_escapeComponent]. A property the form holds twice
+  /// (a second `TEL`) or not at all (`NICKNAME`, `BDAY`, `NOTE`, `SOUND`, `TEL-AV`)
+  /// is reported by its tag.
+  @override
+  QrParsed? parse(String payload) {
+    if (!hasPrefixIgnoreCase(payload, 'MECARD:')) return null;
+    final values = {for (final f in fields) f.id: ''};
+    final unsupported = <String>[];
+    final seen = <String>{};
+    for (final piece in splitUnescaped(payload.substring(7), ';')) {
+      if (piece.isEmpty) continue;
+      final colon = piece.indexOf(':');
+      if (colon < 0) {
+        addOnce(unsupported, piece);
+        continue;
+      }
+      final tag = piece.substring(0, colon).toUpperCase();
+      final raw = piece.substring(colon + 1);
+      // Each tag once: the form has one phone, email, address and name.
+      if (const {'N', 'TEL', 'EMAIL', 'URL', 'ADR'}.contains(tag) &&
+          !seen.add(tag)) {
+        addOnce(unsupported, tag);
+        continue;
+      }
+      switch (tag) {
+        case 'N':
+          final names = _components(raw);
+          // One name is the first name, which is the one the form requires.
+          if (names.length == 1) {
+            values['first_name'] = names[0];
+          } else {
+            values['last_name'] = names[0];
+            values['first_name'] = names[1];
+          }
+          if (names.length > 2) addOnce(unsupported, 'N (extra names)');
+        case 'TEL':
+          values['phone'] = unescapeBackslash(raw).trim();
+        case 'EMAIL':
+          values['email'] = unescapeBackslash(raw).trim();
+        case 'URL':
+          values['url'] = unescapeBackslash(raw).trim();
+        case 'ADR':
+          final adr = _components(raw);
+          String at(int i) => i < adr.length ? adr[i] : '';
+          if (at(0).isNotEmpty) addOnce(unsupported, 'ADR (PO box)');
+          if (at(1).isNotEmpty) addOnce(unsupported, 'ADR (extended address)');
+          for (final (i, f) in addressFields.indexed) {
+            values[f.id] = at(i + 2);
+          }
+        default:
+          addOnce(unsupported, piece.substring(0, colon));
+      }
+    }
+    return QrParsed(values, unsupported);
+  }
+
+  /// A value split at its unescaped commas, each component unescaped.
+  static List<String> _components(String raw) => [
+    for (final c in splitUnescaped(raw, ',')) unescapeBackslash(c),
+  ];
 }

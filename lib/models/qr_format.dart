@@ -29,4 +29,26 @@ abstract class QrFormat {
 
   List<QrField> get fields;
   String buildQrString(Map<String, String> values);
+
+  /// Reads a payload back into this format's values, for importing a scanned
+  /// code. Null when [payload] is not this format; the fallback for those is
+  /// plain text, so a format claims only what is unmistakably its own.
+  ///
+  /// A claim does not promise a faithful form: [QrParsed.unsupported] lists what
+  /// the form cannot hold, and the importer also compares the rebuilt payload with
+  /// [payload] before trusting it (see `lib/formats/import.dart`).
+  QrParsed? parse(String payload);
+}
+
+/// A payload read back by [QrFormat.parse].
+class QrParsed {
+  const QrParsed(this.values, [this.unsupported = const []]);
+
+  /// The values map the form would load, in the same shape `buildQrString` reads.
+  final Map<String, String> values;
+
+  /// The parts of the payload the form has nowhere to put, named the way the
+  /// payload names them (`ORG`, `TITLE`, a Wi-Fi `R:` key), for the user to read.
+  /// Empty when everything found a field.
+  final List<String> unsupported;
 }

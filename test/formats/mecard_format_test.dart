@@ -86,4 +86,72 @@ void main() {
       );
     });
   });
+
+  group('MeCardFormat.parse', () {
+    test('reads back what it builds, escapes included', () {
+      final values = {
+        'first_name': r'A;n,a',
+        'last_name': r'B\b',
+        'phone': '+1 555 000 0000',
+        'email': 'a@example.com',
+        'url': r'https://example.com/a\;b',
+        'street': '1, Main; St',
+        'city': 'Town',
+        'region': 'QC',
+        'postal_code': 'H0H 0H0',
+        'country': 'CA',
+      };
+      final parsed = format.parse(format.buildQrString(values))!;
+      expect(parsed.values, values);
+      expect(parsed.unsupported, isEmpty);
+    });
+
+    test('ignores the prefix case', () {
+      expect(format.parse('mecard:N:Doe,Jo;;')!.values['last_name'], 'Doe');
+    });
+
+    test('reads a lone name as the first name', () {
+      final values = format.parse('MECARD:N:Jo;;')!.values;
+      expect(values['first_name'], 'Jo');
+      expect(values['last_name'], '');
+    });
+
+    test('lists what the form lacks, once each', () {
+      final parsed = format.parse(
+        'MECARD:N:Doe,Jo;NICKNAME:J;BDAY:19900101;TEL:111;TEL:222;TEL-AV:333;'
+        'NOTE:x;NOTE:y;SOUND:z;;',
+      )!;
+      expect(parsed.values['phone'], '111');
+      expect(parsed.unsupported, [
+        'NICKNAME',
+        'BDAY',
+        'TEL',
+        'TEL-AV',
+        'NOTE',
+        'SOUND',
+      ]);
+    });
+
+    test('lists a PO box and extended address', () {
+      final parsed = format.parse('MECARD:N:Jo;ADR:box,ext,Street,City;;')!;
+      expect(parsed.values['street'], 'Street');
+      expect(parsed.unsupported, ['ADR (PO box)', 'ADR (extended address)']);
+    });
+
+    test('does not throw on malformed input', () {
+      for (final payload in [
+        'MECARD:',
+        'MECARD:;;',
+        r'MECARD:N:a\',
+        'MECARD:x',
+      ]) {
+        expect(() => format.parse(payload), returnsNormally);
+      }
+    });
+
+    test('returns null for another prefix', () {
+      expect(format.parse('WIFI:S:x;;'), isNull);
+      expect(format.parse('BEGIN:VCARD'), isNull);
+    });
+  });
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' show Icons, IconData;
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
 import 'validators.dart';
+import 'parsing.dart';
 
 class EmailFormat extends QrFormat {
   @override
@@ -49,5 +50,45 @@ class EmailFormat extends QrFormat {
       params.add('body=${Uri.encodeComponent(values['body']!)}');
     }
     return 'mailto:$to${params.isEmpty ? '' : '?${params.join('&')}'}';
+  }
+
+  @override
+  QrParsed? parse(String payload) {
+    if (!hasPrefixIgnoreCase(payload, 'mailto:')) return null;
+    final rest = payload.substring(7);
+    final query = rest.indexOf('?');
+    final values = {
+      'to': _decode(query < 0 ? rest : rest.substring(0, query)),
+      'subject': '',
+      'body': '',
+    };
+    final unsupported = <String>[];
+    if (query >= 0) {
+      for (final param in rest.substring(query + 1).split('&')) {
+        if (param.isEmpty) continue;
+        final equals = param.indexOf('=');
+        final key = equals < 0 ? param : param.substring(0, equals);
+        final value = equals < 0 ? '' : _decode(param.substring(equals + 1));
+        // Other mailto headers (cc, bcc, ...) have no field.
+        if (values.containsKey(key.toLowerCase()) &&
+            key.toLowerCase() != 'to') {
+          values[key.toLowerCase()] = value;
+        } else {
+          addOnce(unsupported, key);
+        }
+      }
+    }
+    return QrParsed(values, unsupported);
+  }
+
+  /// Undoes `Uri.encodeComponent`, keeping the text as it stands when it is not valid
+  /// percent-encoding (which the decoder reports as an ArgumentError): a scanned code
+  /// is whatever someone put in it.
+  static String _decode(String s) {
+    try {
+      return Uri.decodeComponent(s);
+    } on ArgumentError {
+      return s;
+    }
   }
 }

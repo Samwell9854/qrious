@@ -283,4 +283,101 @@ END:VCARD''');
       expect(lines.last, 'END:VCARD');
     });
   });
+
+  group('VCardFormat.parse', () {
+    test('reads back what it builds, escapes and kinds included', () {
+      final values = {
+        'first_name': r'A;n,a',
+        'last_name': r'B\b',
+        'org': 'Acme; Inc.',
+        'title': 'Boss, Chief',
+        'url': 'https://example.com/a',
+        'phones': '2',
+        'phones.0.number': '+1 555 000 0000',
+        'phones.0.kind': 'CELL',
+        'phones.1.number': '+15550000000,274',
+        'phones.1.kind': '',
+        'emails': '1',
+        'emails.0.address': 'a@example.com',
+        'emails.0.kind': 'WORK',
+        'addresses': '1',
+        'addresses.0.street': 'Line one\nLine two; 1, St',
+        'addresses.0.city': 'Town',
+        'addresses.0.region': 'QC',
+        'addresses.0.postal_code': 'H0H 0H0',
+        'addresses.0.country': 'CA',
+        'addresses.0.kind': 'HOME',
+      };
+      final parsed = format.parse(format.buildQrString(values))!;
+      expect(parsed.values, values);
+      expect(parsed.unsupported, isEmpty);
+    });
+
+    test('ignores the prefix case and reads CRLF and folded lines', () {
+      final parsed = format.parse(
+        'begin:vcard\r\nVERSION:3.0\r\nN:Doe;Jo;;;\r\nFN:Jo Doe\r\n'
+        'EMAIL;type=work:jo@exa\r\n mple.com\r\nEND:VCARD\r\n',
+      )!;
+      expect(parsed.values['first_name'], 'Jo');
+      expect(parsed.values['emails.0.address'], 'jo@example.com');
+      expect(parsed.values['emails.0.kind'], 'WORK');
+      expect(parsed.unsupported, isEmpty);
+    });
+
+    test('picks a kind from the TYPE list, and none when it has none', () {
+      final parsed = format.parse(
+        'BEGIN:VCARD\nN:Doe;Jo;;;\n'
+        'TEL;TYPE=VOICE,WORK:111\nTEL;CELL:222\nTEL;TYPE=VOICE:333\n'
+        'END:VCARD',
+      )!;
+      expect(parsed.values['phones.0.kind'], 'WORK');
+      expect(parsed.values['phones.1.kind'], 'CELL');
+      expect(parsed.values['phones.2.kind'], '');
+    });
+
+    test('lists what the form lacks, once each', () {
+      final parsed = format.parse(
+        'BEGIN:VCARD\nVERSION:3.0\nN:Doe;Jo;Mid;Dr;Jr\nFN:Jo Doe\n'
+        'NOTE:a\nNOTE:b\nBDAY:1990-01-01\nPHOTO;ENCODING=b:AAAA\n'
+        'ADR;TYPE=WORK:box;ext;St;City;;;\nORG:Acme;Unit\nURL:u\nURL:v\n'
+        'END:VCARD',
+      )!;
+      expect(parsed.unsupported, [
+        'N (additional names)',
+        'N (prefix)',
+        'N (suffix)',
+        'NOTE',
+        'BDAY',
+        'PHOTO',
+        'ADR (PO box)',
+        'ADR (extended address)',
+        'ORG (units)',
+        'URL',
+      ]);
+      expect(parsed.values['org'], 'Acme');
+      expect(parsed.values['url'], 'u');
+    });
+
+    test('falls back to FN when N is empty', () {
+      final parsed = format.parse('BEGIN:VCARD\nFN:Jo Doe\nEND:VCARD')!;
+      expect(parsed.values['first_name'], 'Jo Doe');
+    });
+
+    test('does not throw on malformed input', () {
+      for (final payload in [
+        'BEGIN:VCARD',
+        'BEGIN:VCARD\nEND:VCARD',
+        'BEGIN:VCARD\nnonsense\n;;;:\nN\nTEL\nADR:\nEND:VCARD',
+        'BEGIN:VCARD\nN:\\\nEND:VCARD',
+      ]) {
+        expect(() => format.parse(payload), returnsNormally, reason: payload);
+      }
+    });
+
+    test('returns null for another prefix', () {
+      expect(format.parse('MECARD:N:a;;'), isNull);
+      expect(format.parse('BEGIN:VCALENDAR'), isNull);
+      expect(format.parse('hello'), isNull);
+    });
+  });
 }
