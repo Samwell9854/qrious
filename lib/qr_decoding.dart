@@ -69,11 +69,16 @@ List<String> decodeQrCodesFromLuma(LumaFrame frame) {
 List<String> _decodeImage(img.Image original) {
   final image = _capped(original, _maxLongSide);
 
-  // Different binarizers and scales fail on different photos, so each is a fallback for
-  // the previous. A printed, photographed code with speckle inside its modules fails with
-  // the local-threshold HybridBinarizer and reads with the global histogram one; another
-  // decoder only read the same sample once it was shrunk to a quarter, which averages the
-  // speckle away. The first attempt that finds anything gives the whole answer.
+  // Different binarizers and scales fail on different photos. A printed, photographed
+  // code with speckle inside its modules fails with the local-threshold HybridBinarizer
+  // and reads with the global histogram one; another decoder only read the same sample
+  // once it was shrunk to a quarter, which averages the speckle away. A code on a phone
+  // screen, held up to a webcam beside a printed one, often reads only at half or a
+  // quarter (shrinking smooths the screen's pixel grid away) while the printed one reads
+  // only at full size. So every attempt runs and what they find is pooled: stopping at
+  // the first that finds anything would offer one of the two codes and hide the other.
+  // An image with no code runs every attempt anyway, so the slowest case is unchanged.
+  final hits = <_Hit>[];
   for (final divisor in const [1, 2, 4]) {
     final scaled = divisor == 1 ? image : _scaled(image, divisor);
     if (scaled == null) continue;
@@ -82,11 +87,10 @@ List<String> _decodeImage(img.Image original) {
       HybridBinarizer.new,
       GlobalHistogramBinarizer.new,
     ]) {
-      final found = _findAll(BinaryBitmap(makeBinarizer(source)));
-      if (found.isNotEmpty) return _ordered(found);
+      _search(BinaryBitmap(makeBinarizer(source)), 0, 0, 0, divisor, hits);
     }
   }
-  return const [];
+  return _ordered(hits);
 }
 
 img.Image _capped(img.Image image, int longSide) {
@@ -122,20 +126,18 @@ LuminanceSource _luminanceSource(img.Image image) => RGBLuminanceSource(
 /// A decoded payload and where its top-left-most point sits in the whole image.
 typedef _Hit = ({String text, double x, double y});
 
-/// Every code in [bitmap]. zxing2 has no multi reader, so this is a port of ZXing's
-/// GenericMultipleBarcodeReader: decode once, then search the four regions around the
-/// bounding box of what was found, since the box itself is already spoken for.
-List<_Hit> _findAll(BinaryBitmap bitmap) {
-  final hits = <_Hit>[];
-  _search(bitmap, 0, 0, 0, hits);
-  return hits;
-}
-
+/// Adds every code in [bitmap] to [hits], skipping payloads already there. zxing2 has
+/// no multi reader, so this is a port of ZXing's GenericMultipleBarcodeReader: decode
+/// once, then search the four regions around the bounding box of what was found, since
+/// the box itself is already spoken for. Positions are stored in the coordinates of the
+/// unscaled image, [divisor] being how much [bitmap] was shrunk, so hits from different
+/// scales sort together.
 void _search(
   BinaryBitmap bitmap,
   int offsetX,
   int offsetY,
   int depth,
+  int divisor,
   List<_Hit> hits,
 ) {
   if (depth > _maxDepth) return;
@@ -147,6 +149,10 @@ void _search(
     );
   } on ReaderException {
     // NotFound, Checksum and FormatReader all mean "no code in this region".
+    return;
+  } on ArgumentError {
+    // zxing2's detector can take three specks for finder patterns whose spacing gives a
+    // version of 0, and throws instead of reporting nothing found. Seen on webcam frames.
     return;
   }
 
@@ -162,7 +168,11 @@ void _search(
   }
   final text = _repaired(result);
   if (!hits.any((h) => h.text == text)) {
-    hits.add((text: text, x: minX + offsetX, y: minY + offsetY));
+    hits.add((
+      text: text,
+      x: (minX + offsetX) * divisor,
+      y: (minY + offsetY) * divisor,
+    ));
   }
 
   if (!bitmap.isCropSupported) return;
@@ -174,6 +184,7 @@ void _search(
       offsetX + left,
       offsetY + top,
       depth + 1,
+      divisor,
       hits,
     );
   }
@@ -207,8 +218,9 @@ List<String> _ordered(List<_Hit> hits) {
   ];
 }
 
-/// In pixels of the scale the search ran at; the finder-pattern y estimates of one row of
-/// codes differ by a few pixels, not by a code's height.
+/// In pixels of the unscaled image; the finder-pattern y estimates of one row of codes
+/// differ by a few pixels, not by a code's height, and one found at a quarter scale is
+/// off by a few more.
 const _rowTolerance = 20.0;
 
 /// zxing2 hands its signed bytes straight to the character decoder, so every byte of 0x80

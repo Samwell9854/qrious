@@ -10,6 +10,7 @@ Scan a QR code with your webcam.
 
 - **Scan with camera.** Use **Read a QR code** in the title bar, then **Scan with camera…**, and hold the code up to the webcam. The preview shows it like a mirror, and the first code it reads opens in the form. With several cameras, pick one from the list. ([#4](https://github.com/Samwell9854/qrious/issues/4))
 - **Choose the moment yourself.** When the camera keeps reading the wrong code first, for example while you move one code into view past another, turn off **Read automatically**, then press **Capture** (or Space) once the right code is in view. When the picture holds several codes, Qrious asks which one to read, as it does for an image.
+- **Every code in a picture is offered**, from the camera or from an image file. A phone screen and a printed code in the same picture each need different processing to read, and only the first one found was offered.
 - Scanning needs GStreamer's good plugins (`gst-plugins-good` on Arch). Without them, the scanner says what to install; everything else works as before.
 
 ### Issues

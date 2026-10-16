@@ -127,6 +127,23 @@ void main() {
     );
   });
 
+  test('a code only a fallback reads still comes back beside a clean one', () {
+    // A clean code reads on the first attempt, the degraded one only on a later one;
+    // stopping at the first attempt that found anything would lose the second code.
+    const wifi = 'WIFI:T:WPA;S:Cafe;P:hunter2hunter2;;';
+    final clean = _render('clean-code');
+    final degraded = img.decodeImage(_degraded(wifi))!;
+    final canvas = img.Image(
+      width: clean.width + degraded.width + 40,
+      height: max(clean.height, degraded.height),
+      numChannels: 3,
+    );
+    img.fill(canvas, color: img.ColorRgb8(255, 255, 255));
+    img.compositeImage(canvas, clean);
+    img.compositeImage(canvas, degraded, dstX: clean.width + 40);
+    expect(decodeQrCodes(img.encodePng(canvas)), ['clean-code', wifi]);
+  });
+
   test('two codes side by side come back left first', () {
     final bytes = img.encodePng(
       _pair('left-code', 'right-code', sideBySide: true),
