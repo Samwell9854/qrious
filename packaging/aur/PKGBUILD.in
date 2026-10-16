@@ -21,6 +21,8 @@ depends=(
   'gdk-pixbuf2'
   'glib2'
   'glibc'
+  'gst-plugins-base-libs'
+  'gstreamer'
   'gtk3'
   'harfbuzz'
   'hicolor-icon-theme'
@@ -32,6 +34,7 @@ depends=(
   'zlib'
 )
 optdepends=(
+  'gst-plugins-good: scan QR codes with a webcam'
   'wl-clipboard: copy and paste QR images on Wayland'
   'xclip: copy and paste QR images on X11'
 )

@@ -36,7 +36,7 @@ Flutter's clipboard carries text only, so [lib/image_clipboard.dart](../lib/imag
 
 The same rule applies one level down. Flutter installs plugin libraries into `lib/` as plain copies, so by default they keep the RUNPATH of the machine that built them, an absolute path into its checkout. On the user's machine that path does not exist, or worse, it exists and holds something else. [linux/CMakeLists.txt](../linux/CMakeLists.txt) gives every plugin `$ORIGIN` instead, and CI fails any build whose bundled libraries search outside the bundle. That fix belongs in the build rather than in the PKGBUILD, so every consumer of the tarball gets a relocatable bundle, not just this package.
 
-`depends=()` is the list of libraries the bundle actually links, as `namcap` reports from the built package's ELF headers. It is not a guess at what GTK pulls in. `wl-clipboard` and `xclip` are optional because only **Copy image** needs them, and the app names the missing one when neither is installed.
+`depends=()` is the list of libraries the bundle actually links, as `namcap` reports from the built package's ELF headers. It is not a guess at what GTK pulls in. `wl-clipboard` and `xclip` are optional because only **Copy image** needs them, and the app names the missing one when neither is installed. GStreamer is split the same way. The runner links `gstreamer` and `gst-plugins-base-libs`, so both are required, but the element that reads a webcam, `v4l2src`, is loaded at run time from `gst-plugins-good`. That package brings about forty dependencies of its own for a feature not every user needs, so it is optional: without it, **Scan with camera** says what to install.
 
 ## How a release flows
 
