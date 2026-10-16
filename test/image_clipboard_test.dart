@@ -286,4 +286,96 @@ void main() {
       skip: copier == null || reader == null,
     );
   });
+
+  group('firstFilePath', () {
+    test('takes the path of a file URI', () {
+      expect(
+        firstFilePath('file:///home/me/code.svg\r\n'),
+        '/home/me/code.svg',
+      );
+    });
+
+    test('decodes percent-encoded characters', () {
+      expect(
+        firstFilePath('file:///home/me/my%20code%C3%A9.png'),
+        '/home/me/my code\u00e9.png',
+      );
+    });
+
+    test('skips comments, blank lines and URIs that are not files', () {
+      expect(
+        firstFilePath(
+          '# copied\n\nhttps://example.com/a.png\ntrash:/b.png\n'
+          'file:///tmp/first.png\nfile:///tmp/second.png\n',
+        ),
+        '/tmp/first.png',
+      );
+    });
+
+    test('is null when no line names a file', () {
+      expect(
+        firstFilePath('# only a comment\nhttps://example.com/a.png'),
+        isNull,
+      );
+      expect(firstFilePath(''), isNull);
+    });
+  });
+
+  group('hasImageExtension', () {
+    test('accepts the image types in any case', () {
+      for (final name in [
+        'a.png',
+        'a.JPG',
+        'a.jpeg',
+        'a.Gif',
+        'a.bmp',
+        'a.webp',
+        'a.SVG',
+      ]) {
+        expect(hasImageExtension('/tmp/$name'), isTrue, reason: name);
+      }
+    });
+
+    test('rejects other files and extensionless names', () {
+      expect(hasImageExtension('/tmp/notes.txt'), isFalse);
+      expect(hasImageExtension('/tmp/png'), isFalse);
+      expect(hasImageExtension('/tmp/dir.png/file'), isFalse);
+    });
+  });
+
+  group('a copied image file', () {
+    bool onPath(String executable) =>
+        Process.runSync('which', [executable]).exitCode == 0;
+    final wayland = (Platform.environment['WAYLAND_DISPLAY'] ?? '').isNotEmpty;
+    final usable = wayland && onPath('wl-copy') && onPath('wl-paste');
+
+    testWidgets(
+      'is read from a text/uri-list on the clipboard',
+      (tester) async {
+        await tester.runAsync(() async {
+          final dir = Directory.systemTemp.createTempSync('qrious_clip');
+          addTearDown(() => dir.deleteSync(recursive: true));
+          final bytes = await renderQrPng(
+            encodeQr('https://example.com', ErrorCorrection.auto),
+            size: ImageSize.small,
+          );
+          final file = File('${dir.path}/my code.png')..writeAsBytesSync(bytes);
+
+          final copy = await Process.start('wl-copy', [
+            '--type',
+            'text/uri-list',
+          ]);
+          copy.stdin.write('# copied\n${file.uri}\n');
+          await copy.stdin.close();
+          expect(await copy.exitCode, 0);
+
+          expect(await readImageFromClipboard(), bytes);
+          expect(await clipboardOffersImageFile(), isTrue);
+          expect(await clipboardOffersOnlyImage(), isFalse);
+        });
+      },
+      // Skipped where there is no Wayland clipboard to put the list on, as above.
+      skip: !usable,
+    );
+  });
 }

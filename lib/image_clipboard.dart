@@ -240,14 +240,78 @@ const _textTargets = {'UTF8_STRING', 'STRING', 'TEXT', 'COMPOUND_TEXT'};
 bool _isTextType(String type) =>
     type.startsWith('text/plain') || _textTargets.contains(type);
 
+const _uriListType = 'text/uri-list';
+
+/// The first local file in a `text/uri-list` [list], as a path, or null when it names
+/// none.
+///
+/// RFC 2483: one URI per line, lines starting with `#` are comments. Anything that is
+/// not a `file:` URI (a web address, `trash:`) has nothing to read and is skipped, as
+/// is one that does not parse.
+String? firstFilePath(String list) {
+  for (final line in const LineSplitter().convert(list)) {
+    final text = line.trim();
+    if (text.isEmpty || text.startsWith('#')) continue;
+    try {
+      final uri = Uri.parse(text);
+      if (uri.scheme == 'file') return uri.toFilePath();
+    } on FormatException {
+      continue;
+    } on UnsupportedError {
+      continue;
+    }
+  }
+  return null;
+}
+
+const _imageExtensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'};
+
+/// Whether [path] ends in the extension of an image the app can try to read, in any
+/// case.
+bool hasImageExtension(String path) {
+  final dot = path.lastIndexOf('.');
+  if (dot < 0 || path.lastIndexOf('/') > dot) return false;
+  return _imageExtensions.contains(path.substring(dot + 1).toLowerCase());
+}
+
+/// The path of the file the clipboard names in its `text/uri-list`, which is what a
+/// file manager or image viewer puts there when a file is copied (no image data,
+/// only the path as text and as a URI). Null when the list is not offered or names no
+/// local file.
+Future<String?> _copiedFilePath(
+  ClipboardReader helper,
+  List<String> types,
+) async {
+  if (!types.contains(_uriListType)) return null;
+  final result = await _runReader(helper, helper.readArguments(_uriListType));
+  if (result.exitCode != 0) return null;
+  return firstFilePath(
+    utf8.decode(result.stdout as List<int>, allowMalformed: true),
+  );
+}
+
 /// Reads the image on the clipboard as raw PNG, JPEG or whatever type it is
 /// offered as, or null when the clipboard offers no image.
+///
+/// When no image data is offered but a file was copied, the file's bytes are read
+/// instead; whether they are an image is for the decoder to say.
 ///
 /// Throws [ImageClipboardException] when there is no helper or the read fails.
 Future<Uint8List?> readImageFromClipboard() async {
   final helper = _requireReader();
-  final type = pickImageType(await _listTypes(helper));
-  if (type == null) return null;
+  final types = await _listTypes(helper);
+  final type = pickImageType(types);
+  if (type == null) {
+    final path = await _copiedFilePath(helper, types);
+    if (path == null) return null;
+    try {
+      return await File(path).readAsBytes();
+    } on FileSystemException catch (error) {
+      throw ImageClipboardException(
+        'Could not read the copied file: ${error.message}',
+      );
+    }
+  }
 
   final result = await _runReader(helper, helper.readArguments(type));
   if (result.exitCode != 0) {
@@ -267,6 +331,21 @@ Future<bool> clipboardOffersOnlyImage() async {
   try {
     return offersOnlyImage(await clipboardTypes());
   } on ImageClipboardException {
+    return false;
+  }
+}
+
+/// Whether the clipboard holds a copied file with an image extension.
+///
+/// A copied file also offers its path as text, so [clipboardOffersOnlyImage] is false
+/// for it; this is the other thing Ctrl+V may import, but only where no text field
+/// would take the paste. Never throws: false on any error.
+Future<bool> clipboardOffersImageFile() async {
+  try {
+    final helper = _requireReader();
+    final path = await _copiedFilePath(helper, await _listTypes(helper));
+    return path != null && hasImageExtension(path);
+  } catch (_) {
     return false;
   }
 }

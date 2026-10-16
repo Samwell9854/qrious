@@ -29,6 +29,7 @@ Future<void> pumpHome(
   Future<Uint8List?> Function()? pick,
   Future<Uint8List?> Function()? clipboard,
   Future<bool> Function()? onlyImage,
+  Future<bool> Function()? imageFile,
   Future<Uint8List> Function(Uint8List)? rasterize,
   Future<List<String>> Function(Uint8List)? decode,
   Size size = const Size(1280, 800),
@@ -42,6 +43,7 @@ Future<void> pumpHome(
         pickImageFile: pick ?? () async => bytes,
         readClipboardImage: clipboard ?? () async => bytes,
         clipboardOffersOnlyImage: onlyImage ?? () async => false,
+        clipboardOffersImageFile: imageFile ?? () async => false,
         decodeImage: decode ?? (_) async => payloads,
         rasterizeSvgImage: rasterize,
       ),
@@ -391,6 +393,32 @@ void main() {
       );
       await ctrlV(tester);
       expect(find.text('Code read into Wi-Fi'), findsOneWidget);
+    });
+
+    testWidgets('Ctrl+V reads a copied image file when no field has focus', (
+      tester,
+    ) async {
+      await pumpHome(
+        tester,
+        payloads: [wifiPayload],
+        imageFile: () async => true,
+      );
+      await ctrlV(tester);
+      expect(find.text('Code read into Wi-Fi'), findsOneWidget);
+    });
+
+    testWidgets('Ctrl+V leaves a copied image file to a focused field', (
+      tester,
+    ) async {
+      await pumpHome(
+        tester,
+        payloads: [wifiPayload],
+        imageFile: () async => true,
+      );
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+      await ctrlV(tester);
+      expect(find.byType(SnackBar), findsNothing);
     });
 
     testWidgets('Ctrl+V leaves a clipboard with text alone', (tester) async {

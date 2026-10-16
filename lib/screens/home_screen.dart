@@ -34,6 +34,7 @@ class HomeScreen extends StatefulWidget {
     this.pickImageFile,
     this.readClipboardImage,
     this.clipboardOffersOnlyImage,
+    this.clipboardOffersImageFile,
     this.decodeImage,
     this.rasterizeSvgImage,
   });
@@ -58,6 +59,9 @@ class HomeScreen extends StatefulWidget {
 
   /// Injectable for tests; the real clipboard when null.
   final Future<bool> Function()? clipboardOffersOnlyImage;
+
+  /// Injectable for tests; the real clipboard when null.
+  final Future<bool> Function()? clipboardOffersImageFile;
 
   /// Injectable for tests; the real decoder, off the UI thread, when null.
   final Future<List<String>> Function(Uint8List bytes)? decodeImage;
@@ -268,7 +272,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// still runs. That is safe because this acts only when the clipboard offers an
   /// image and no text at all, which is exactly when a field's paste has nothing to
   /// paste. A clipboard with both, as a copied spreadsheet range has, pastes its text
-  /// as it always did.
+  /// as it always did. A copied image file is the one exception that has text (its
+  /// path): it is read only when no text field has focus.
   bool _onKey(KeyEvent event) {
     if (event is! KeyDownEvent ||
         event.logicalKey != LogicalKeyboardKey.keyV ||
@@ -284,7 +289,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _pasteIfOnlyImage() async {
     final offersImage =
         widget.clipboardOffersOnlyImage ?? clipboardOffersOnlyImage;
-    if (await offersImage() && mounted && !_importing) _pasteImage();
+    final offersFile =
+        widget.clipboardOffersImageFile ?? clipboardOffersImageFile;
+    // Asked before any await: the focus may have moved by the time they answer.
+    final inField = _textFieldHasFocus();
+    final take = await offersImage() || (!inField && await offersFile());
+    if (take && mounted && !_importing) _pasteImage();
+  }
+
+  /// Whether a text field has the keyboard focus.
+  ///
+  /// A copied file offers its path as text too, and in a field Ctrl+V pastes that
+  /// path, as every app does; only with no field focused does the file get read.
+  bool _textFieldHasFocus() {
+    final context = FocusManager.instance.primaryFocus?.context;
+    if (context == null) return false;
+    return context is Element &&
+        (context.widget is EditableText ||
+            context.findAncestorWidgetOfExactType<EditableText>() != null);
   }
 
   /// Runs [read] as the one read in progress: it returns the image's bytes, or null

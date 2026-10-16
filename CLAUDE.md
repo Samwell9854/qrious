@@ -4,7 +4,7 @@ Flutter app that generates QR codes from structured input. Pick a format (Wi-Fi,
 
 - Flutter 3.47 stable / Dart SDK `^3.11.5`
 - The only platform scaffolded so far is **Linux** (`linux/`). iOS is on indefinite hold — see Known rough edges.
-- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels), `flutter_svg` (reading SVG: drawn to pixels before decoding).
+- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels). Linux build and runtime also need `librsvg` (`librsvg2-dev` to build), which the runner uses to draw SVG files before decoding.
 
 ## Commands
 
@@ -33,7 +33,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/qr_export.dart](lib/qr_export.dart) | The file types Save offers, their rendering and extensions, and the suggested filename |
 | [lib/save_location.dart](lib/save_location.dart) | The save dialog, behind a typedef the screen can stub in tests |
 | [lib/image_clipboard.dart](lib/image_clipboard.dart) | Copies a PNG to the clipboard by piping it to `wl-copy` or `xclip`, and reads an image back with `wl-paste` or `xclip` |
-| [lib/svg_raster.dart](lib/svg_raster.dart) | Spots an SVG file by its first bytes and draws it to a white-background PNG, so the decoder can read it |
+| [lib/svg_raster.dart](lib/svg_raster.dart) | Spots an SVG file by its first bytes and asks the Linux runner (`linux/runner/svg_raster.cc`, librsvg, over the `qrious/svg` channel) to draw it to a white-background PNG, so the decoder can read it |
 | [lib/qr_decoding.dart](lib/qr_decoding.dart) | Reads the QR codes in an image file: zxing2 with two binarizers and three scales, finding several codes per image |
 | [lib/open_image.dart](lib/open_image.dart) | The open-image dialog, behind a typedef the screen can stub in tests |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |
