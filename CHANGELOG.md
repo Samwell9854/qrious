@@ -18,6 +18,10 @@ Read a QR code back from a picture, and edit it as a form.
 - **Undo** (the button or Ctrl+Z) brings back what the form held before a code was read, as it does after Clear.
 - Copying and reading the clipboard both need `wl-clipboard` on Wayland or `xclip` on X11.
 
+### Everyday use
+
+- **Open and Save show your desktop's own file dialog** (KDE's on Plasma, GNOME's on GNOME) instead of GTK's, which drew its file-type menu wrongly on KDE under Wayland. Where no desktop portal is running, the GTK dialog is used as before.
+
 ### Issues
 
 Part of #4, which stays open: reading from the camera and reproducing a scanned code module for module come later.
