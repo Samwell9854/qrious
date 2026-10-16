@@ -2,6 +2,20 @@
 
 What each release changes, for the people using the app. Each section becomes that version's GitHub release notes, so it is written before the release is tagged. Earlier releases predate this file.
 
+## 2026.10.4
+
+Scan a QR code with your webcam.
+
+### Reading a code
+
+- **Scan with camera.** Use **Read a QR code** in the title bar, then **Scan with camera…**, and hold the code up to the webcam. The preview shows it like a mirror, and the first code it reads opens in the form. With several cameras, pick one from the list. ([#4](https://github.com/Samwell9854/qrious/issues/4))
+- **Choose the moment yourself.** When the camera keeps reading the wrong code first, for example while you move one code into view past another, turn off **Read automatically**, then press **Capture** (or Space) once the right code is in view. When the picture holds several codes, Qrious asks which one to read, as it does for an image.
+- Scanning needs GStreamer's good plugins (`gst-plugins-good` on Arch). Without them, the scanner says what to install; everything else works as before.
+
+### Issues
+
+Part of #4, which stays open: reproducing a scanned code module for module comes later.
+
 ## 2026.10.3
 
 Read a QR code back from a picture, and edit it as a form.

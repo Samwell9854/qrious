@@ -20,7 +20,9 @@ import '../qr_export.dart';
 import '../qr_png.dart';
 import '../save_location.dart';
 import '../svg_raster.dart';
+import '../webcam.dart';
 import '../widgets/app_title.dart';
+import '../widgets/camera_scanner.dart';
 import '../widgets/fill_then_scroll.dart';
 import '../widgets/full_screen_qr.dart';
 
@@ -37,6 +39,8 @@ class HomeScreen extends StatefulWidget {
     this.clipboardOffersImageFile,
     this.decodeImage,
     this.rasterizeSvgImage,
+    this.webcam,
+    this.decodeFrame,
   });
 
   /// Injectable for tests; the real save dialog when null.
@@ -70,6 +74,13 @@ class HomeScreen extends StatefulWidget {
   /// than part of the default [decodeImage], so a test that stubs the decoder can
   /// still see an SVG go through drawing first.
   final Future<Uint8List> Function(Uint8List bytes)? rasterizeSvgImage;
+
+  /// Injectable for tests; the Linux runner's camera when null.
+  final Webcam? webcam;
+
+  /// Injectable for tests; the real decoder, off the UI thread, when null. Reads the
+  /// codes in one camera frame.
+  final Future<List<String>> Function(LumaFrame frame)? decodeFrame;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -333,6 +344,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Created on first use, so a screen that never scans never touches the camera.
+  late final Webcam _webcam = widget.webcam ?? RunnerWebcam();
+
+  /// Reads codes from the camera. Shares [_importing] with the image reads, so the
+  /// two cannot run at once; the scanner returns only non-empty lists, so the "no
+  /// code" message never applies here.
+  Future<void> _scanWithCamera() async {
+    if (_importing) return;
+    setState(() => _importing = true);
+    try {
+      final payloads = await showCameraScanner(
+        context,
+        webcam: _webcam,
+        decode: widget.decodeFrame,
+      );
+      if (payloads != null && payloads.isNotEmpty && mounted) {
+        await _importPayloads(payloads);
+      }
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
   void _openImage() => _runImport(widget.pickImageFile ?? pickImageFile);
 
   void _pasteImage() => _runImport(() async {
@@ -369,7 +403,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return;
     }
     if (!mounted) return;
+    await _importPayloads(payloads);
+  }
 
+  /// Loads what [payloads] hold, asking first when it is several.
+  Future<void> _importPayloads(List<String> payloads) async {
     switch (payloads) {
       case []:
         _say('No QR code found in this image.');
@@ -645,6 +683,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           leadingIcon: const Icon(Icons.content_paste),
           child: const Text('Paste image'),
+        ),
+        MenuItemButton(
+          onPressed: _importing ? null : _scanWithCamera,
+          leadingIcon: const Icon(Icons.photo_camera_outlined),
+          child: const Text('Scan with camera…'),
         ),
       ],
       builder: (context, menu, _) => IconButton(

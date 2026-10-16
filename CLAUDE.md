@@ -4,7 +4,7 @@ Flutter app that generates QR codes from structured input. Pick a format (Wi-Fi,
 
 - Flutter 3.47 stable / Dart SDK `^3.11.5`
 - The only platform scaffolded so far is **Linux** (`linux/`). iOS is on indefinite hold — see Known rough edges.
-- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels). Linux build and runtime also need `librsvg` (`librsvg2-dev` to build), which the runner uses to draw SVG files before decoding.
+- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels). Linux build and runtime also need `librsvg` (`librsvg2-dev` to build), which the runner uses to draw SVG files before decoding, and GStreamer (`libgstreamer1.0-dev` and `libgstreamer-plugins-base1.0-dev` to build), which the runner uses to capture the webcam; `v4l2src` from gst-plugins-good is needed only at run time, and only for scanning.
 
 ## Commands
 
@@ -35,6 +35,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/image_clipboard.dart](lib/image_clipboard.dart) | Copies a PNG to the clipboard by piping it to `wl-copy` or `xclip`, and reads an image back with `wl-paste` or `xclip` |
 | [lib/svg_raster.dart](lib/svg_raster.dart) | Spots an SVG file by its first bytes and asks the Linux runner (`linux/runner/svg_raster.cc`, librsvg, over the `qrious/svg` channel) to draw it to a white-background PNG, so the decoder can read it |
 | [lib/qr_decoding.dart](lib/qr_decoding.dart) | Reads the QR codes in an image file: zxing2 with two binarizers and three scales, finding several codes per image |
+| [lib/webcam.dart](lib/webcam.dart), [lib/widgets/camera_scanner.dart](lib/widgets/camera_scanner.dart) | The webcam over the `qrious/camera` channel (the Linux runner's `linux/runner/camera.cc`, GStreamer), and the scanner that reads codes from it, on its own or on Capture |
 | [lib/open_image.dart](lib/open_image.dart) | The open-image dialog, behind a typedef the screen can stub in tests |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |
 | [tool/](tool/) | Release tooling — the version format rule, the tagging script, and the build-number bump |
