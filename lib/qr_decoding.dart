@@ -35,11 +35,39 @@ const _maxDepth = 4;
 /// deduplicated, ordered top-to-bottom then left-to-right by position. Empty when none is
 /// found. Throws [UnreadableImageException] when the bytes are no image.
 List<String> decodeQrCodes(Uint8List imageBytes) {
-  var image = img.decodeImage(imageBytes);
+  final image = img.decodeImage(imageBytes);
   if (image == null) throw const UnreadableImageException();
   // Phone photos carry their rotation in EXIF rather than in the pixels.
-  image = img.bakeOrientation(image);
-  image = _capped(image, _maxLongSide);
+  return _decodeImage(img.bakeOrientation(image));
+}
+
+/// One grayscale frame, one byte of luma per pixel, rows packed without padding: what
+/// the camera hands over (lib/webcam.dart).
+typedef LumaFrame = ({int width, int height, Uint8List luma});
+
+/// The payload of every QR code in [frame], as [decodeQrCodes] finds them in a file.
+/// Throws [ArgumentError] when the bytes do not match the dimensions.
+List<String> decodeQrCodesFromLuma(LumaFrame frame) {
+  if (frame.width <= 0 ||
+      frame.height <= 0 ||
+      frame.luma.length != frame.width * frame.height) {
+    throw ArgumentError(
+      '${frame.luma.length} bytes for a ${frame.width}x${frame.height} frame',
+    );
+  }
+  return _decodeImage(
+    img.Image.fromBytes(
+      width: frame.width,
+      height: frame.height,
+      bytes: frame.luma.buffer,
+      bytesOffset: frame.luma.offsetInBytes,
+      numChannels: 1,
+    ),
+  );
+}
+
+List<String> _decodeImage(img.Image original) {
+  final image = _capped(original, _maxLongSide);
 
   // Different binarizers and scales fail on different photos, so each is a fallback for
   // the previous. A printed, photographed code with speckle inside its modules fails with

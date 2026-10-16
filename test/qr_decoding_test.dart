@@ -141,6 +141,26 @@ void main() {
     expect(decodeQrCodes(bytes), ['top-code', 'bottom-code']);
   });
 
+  test('a camera frame of luma bytes decodes like a file', () {
+    final image = _pair('left-code', 'right-code', sideBySide: true);
+    final luma = Uint8List.fromList([for (final p in image) p.r.toInt()]);
+    expect(
+      decodeQrCodesFromLuma((
+        width: image.width,
+        height: image.height,
+        luma: luma,
+      )),
+      ['left-code', 'right-code'],
+    );
+  });
+
+  test('a camera frame whose bytes do not match its size is refused', () {
+    expect(
+      () => decodeQrCodesFromLuma((width: 10, height: 10, luma: Uint8List(99))),
+      throwsArgumentError,
+    );
+  });
+
   test('a blank image has no codes', () {
     final blank = img.Image(width: 300, height: 300, numChannels: 3);
     img.fill(blank, color: img.ColorRgb8(255, 255, 255));
