@@ -4,7 +4,7 @@ Flutter app that generates QR codes from structured input. Pick a format (Wi-Fi,
 
 - Flutter 3.47 stable / Dart SDK `^3.11.5`
 - The only platform scaffolded so far is **Linux** (`linux/`). iOS is on indefinite hold — see Known rough edges.
-- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels), `desktop_drop` (dropping an image file on the window), `flutter_svg` (reading SVG: drawn to pixels before decoding).
+- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels), `flutter_svg` (reading SVG: drawn to pixels before decoding).
 
 ## Commands
 
@@ -27,6 +27,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/screens/home_screen.dart](lib/screens/home_screen.dart) | The whole UI: format picker, generated form, QR preview |
 | [lib/widgets/version_badge.dart](lib/widgets/version_badge.dart) | The version chip in the app bar |
 | [lib/widgets/full_screen_qr.dart](lib/widgets/full_screen_qr.dart), [lib/full_screen.dart](lib/full_screen.dart), [lib/pixel_size.dart](lib/pixel_size.dart) | The code alone at the size of the screen, for scanning; taking the whole screen for it, and reading how large a pixel is to judge when to offer it (a channel the Linux runner answers) |
+| [lib/file_drop.dart](lib/file_drop.dart) | `FileDropRegion`: files dragged onto the window, reported by the Linux runner on the `qrious/drop` channel as file paths |
 | [lib/qr_encoding.dart](lib/qr_encoding.dart) | Encodes a payload at the chosen error correction, including how Auto picks a level |
 | [lib/qr_png.dart](lib/qr_png.dart), [lib/qr_svg.dart](lib/qr_svg.dart) | Render the encoded code to a PNG or an SVG for saving — black on white, with a quiet zone, sized in pixels per module |
 | [lib/qr_export.dart](lib/qr_export.dart) | The file types Save offers, their rendering and extensions, and the suggested filename |

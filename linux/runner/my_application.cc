@@ -10,6 +10,9 @@ struct _MyApplication {
   char** dart_entrypoint_arguments;
   GtkWindow* window;
   FlMethodChannel* window_channel;
+  FlMethodChannel* drop_channel;
+  // Whether "enter" was already sent for the drag under way: drag-motion repeats.
+  gboolean drag_entered;
   // Whether the window was already full screen when Dart asked for it, so that
   // leaving the full-screen code does not also undo the user's own choice.
   gboolean was_full_screen;
@@ -99,6 +102,58 @@ static void window_method_call_cb(FlMethodChannel* channel,
   fl_method_call_respond(method_call, response, nullptr);
 }
 
+// Sends [method] on the "qrious/drop" channel (lib/file_drop.dart).
+static void send_drop_event(MyApplication* self, const gchar* method,
+                            FlValue* args) {
+  if (self->drop_channel != nullptr) {
+    fl_method_channel_invoke_method(self->drop_channel, method, args, nullptr,
+                                    nullptr, nullptr);
+  }
+}
+
+static gboolean drag_motion_cb(GtkWidget* widget, GdkDragContext* context,
+                               gint x, gint y, guint time, gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  // Only a drag that offers file URIs is ours; a dragged piece of text is not.
+  if (!self->drag_entered &&
+      gtk_drag_dest_find_target(widget, context, nullptr) != GDK_NONE) {
+    self->drag_entered = TRUE;
+    send_drop_event(self, "enter", nullptr);
+  }
+  // Not handled: GTK's default handling answers the drag source.
+  return FALSE;
+}
+
+// GTK emits this right before drag-drop as well, so Dart sees "leave" then "drop".
+static void drag_leave_cb(GtkWidget* widget, GdkDragContext* context, guint time,
+                          gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  if (self->drag_entered) {
+    self->drag_entered = FALSE;
+    send_drop_event(self, "leave", nullptr);
+  }
+}
+
+static void drag_data_received_cb(GtkWidget* widget, GdkDragContext* context,
+                                  gint x, gint y, GtkSelectionData* data,
+                                  guint info, guint time, gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  self->drag_entered = FALSE;
+  g_auto(GStrv) uris = gtk_selection_data_get_uris(data);
+  if (uris == nullptr) {
+    return;
+  }
+  g_autoptr(FlValue) paths = fl_value_new_list();
+  for (gchar** uri = uris; *uri != nullptr; uri++) {
+    // Skips what is not a local file (http:, trash:, ...): there is nothing to read.
+    g_autofree gchar* path = g_filename_from_uri(*uri, nullptr, nullptr);
+    if (path != nullptr) {
+      fl_value_append_take(paths, fl_value_new_string(path));
+    }
+  }
+  send_drop_event(self, "drop", paths);
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -158,6 +213,22 @@ static void my_application_activate(GApplication* application) {
   fl_method_channel_set_method_call_handler(
       self->window_channel, window_method_call_cb, self, nullptr);
 
+  // Dropped files arrive as a text/uri-list and nothing else. Not the
+  // application/vnd.portal.filetransfer target that desktop_drop used: it hands the
+  // files over through the FileTransfer portal, which refuses an unsandboxed app
+  // ("Invalid transfer") and so delivered nothing. A Flatpak build (#9) would
+  // receive portal paths instead and need to revisit this.
+  self->drop_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)), "qrious/drop",
+      FL_METHOD_CODEC(codec));
+  gtk_drag_dest_set(GTK_WIDGET(view), GTK_DEST_DEFAULT_ALL, nullptr, 0,
+                    GDK_ACTION_COPY);
+  gtk_drag_dest_add_uri_targets(GTK_WIDGET(view));
+  g_signal_connect(view, "drag-motion", G_CALLBACK(drag_motion_cb), self);
+  g_signal_connect(view, "drag-leave", G_CALLBACK(drag_leave_cb), self);
+  g_signal_connect(view, "drag-data-received",
+                   G_CALLBACK(drag_data_received_cb), self);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -205,6 +276,7 @@ static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_object(&self->window_channel);
+  g_clear_object(&self->drop_channel);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 

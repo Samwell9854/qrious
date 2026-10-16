@@ -423,9 +423,14 @@ void main() {
   });
 
   group('dropping a file', () {
-    const channel = MethodChannel('desktop_drop');
+    const channel = MethodChannel('qrious/drop');
+    const overlay = 'Drop an image to read its QR code';
 
-    Future<void> send(WidgetTester tester, String method, Object args) async {
+    Future<void> send(
+      WidgetTester tester,
+      String method, [
+      Object? args,
+    ]) async {
       await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
         channel.name,
         const StandardMethodCodec().encodeMethodCall(MethodCall(method, args)),
@@ -434,9 +439,10 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('shows the overlay while dragging, then reads the file', (
-      tester,
-    ) async {
+    Future<Uint8List?> pumpAndDrop(
+      WidgetTester tester, {
+      required bool leaveFirst,
+    }) async {
       final dir = Directory.systemTemp.createTempSync('qrious-drop');
       addTearDown(() => dir.deleteSync(recursive: true));
       final file = File('${dir.path}/code.png')..writeAsBytesSync([9, 9]);
@@ -456,21 +462,46 @@ void main() {
         ),
       );
 
-      await send(tester, 'entered', [100.0, 100.0]);
-      expect(find.text('Drop an image to read its QR code'), findsOneWidget);
-      await send(tester, 'exited', <Object>[]);
-      expect(find.text('Drop an image to read its QR code'), findsNothing);
-
-      await send(tester, 'entered', [100.0, 100.0]);
+      await send(tester, 'enter');
+      expect(find.text(overlay), findsOneWidget);
+      // GTK emits leave right before the drop.
+      if (leaveFirst) {
+        await send(tester, 'leave');
+        expect(find.text(overlay), findsNothing);
+      }
       await tester.runAsync(() async {
-        await send(tester, 'performOperation', [file.path]);
+        await send(tester, 'drop', [file.path]);
         await Future<void>.delayed(const Duration(milliseconds: 100));
       });
       await tester.pumpAndSettle();
+      return got;
+    }
+
+    testWidgets('shows the overlay while dragging, hides it on leave', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+      await send(tester, 'enter');
+      expect(find.text(overlay), findsOneWidget);
+      await send(tester, 'leave');
+      expect(find.text(overlay), findsNothing);
+    });
+
+    testWidgets('reads the dropped file', (tester) async {
+      final got = await pumpAndDrop(tester, leaveFirst: false);
 
       expect(got, [9, 9]);
       expect(find.text('Code read into Wi-Fi'), findsOneWidget);
-      expect(find.text('Drop an image to read its QR code'), findsNothing);
+      expect(find.text(overlay), findsNothing);
+    });
+
+    testWidgets('reads the file when leave comes right before the drop', (
+      tester,
+    ) async {
+      final got = await pumpAndDrop(tester, leaveFirst: true);
+
+      expect(got, [9, 9]);
+      expect(find.text('Code read into Wi-Fi'), findsOneWidget);
     });
   });
 

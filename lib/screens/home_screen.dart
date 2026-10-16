@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:desktop_drop/desktop_drop.dart';
-import 'package:file_selector/file_selector.dart' show XFile;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../formats/import.dart';
 import '../formats/registry.dart';
+import '../file_drop.dart';
 import '../full_screen.dart';
 import '../pixel_size.dart';
 import '../models/qr_field.dart';
@@ -321,9 +320,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   });
 
   /// Reads the first file dropped on the window; any others are ignored.
-  void _dropImage(List<XFile> files) {
-    if (files.isEmpty) return;
-    _runImport(() => files.first.readAsBytes());
+  void _dropImage(List<String> paths) {
+    if (paths.isEmpty) return;
+    _runImport(() => File(paths.first).readAsBytes());
   }
 
   void _say(String message) {
@@ -568,10 +567,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _dragging = false;
 
   Widget _buildScaffold() {
-    return DropTarget(
-      onDragEntered: (_) => setState(() => _dragging = true),
-      onDragExited: (_) => setState(() => _dragging = false),
-      onDragDone: (details) => _dropImage(details.files),
+    return FileDropRegion(
+      onDragging: (dragging) => setState(() => _dragging = dragging),
+      onDrop: _dropImage,
       child: Scaffold(
         appBar: AppBar(
           title: const AppTitle(),
