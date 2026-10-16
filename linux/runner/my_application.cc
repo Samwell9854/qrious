@@ -3,6 +3,7 @@
 #include <flutter_linux/flutter_linux.h>
 #include <math.h>
 
+#include "camera.h"
 #include "flutter/generated_plugin_registrant.h"
 #include "svg_raster.h"
 
@@ -13,6 +14,8 @@ struct _MyApplication {
   FlMethodChannel* window_channel;
   FlMethodChannel* drop_channel;
   FlMethodChannel* svg_channel;
+  FlMethodChannel* camera_channel;
+  QriousCamera* camera;
   // Whether "enter" was already sent for the drag under way: drag-motion repeats.
   gboolean drag_entered;
   // Whether the window was already full screen when Dart asked for it, so that
@@ -139,6 +142,14 @@ static void svg_method_call_cb(FlMethodChannel* channel,
   fl_method_call_respond(method_call, response, nullptr);
 }
 
+// Answers the "qrious/camera" channel: the webcam, captured by GStreamer in
+// camera.cc because Flutter has no camera on Linux (lib/webcam.dart).
+static void camera_method_call_cb(FlMethodChannel* channel,
+                                  FlMethodCall* method_call, gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  qrious_camera_handle(self->camera, method_call);
+}
+
 // Sends [method] on the "qrious/drop" channel (lib/file_drop.dart).
 static void send_drop_event(MyApplication* self, const gchar* method,
                             FlValue* args) {
@@ -256,6 +267,15 @@ static void my_application_activate(GApplication* application) {
   fl_method_channel_set_method_call_handler(
       self->svg_channel, svg_method_call_cb, self, nullptr);
 
+  self->camera_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)), "qrious/camera",
+      FL_METHOD_CODEC(codec));
+  self->camera = qrious_camera_new(
+      fl_engine_get_texture_registrar(fl_view_get_engine(view)),
+      self->camera_channel);
+  fl_method_channel_set_method_call_handler(
+      self->camera_channel, camera_method_call_cb, self, nullptr);
+
   // Dropped files arrive as a text/uri-list and nothing else. Not the
   // application/vnd.portal.filetransfer target that desktop_drop used: it hands the
   // files over through the FileTransfer portal, which refuses an unsandboxed app
@@ -318,6 +338,8 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_pointer(&self->camera, qrious_camera_free);
+  g_clear_object(&self->camera_channel);
   g_clear_object(&self->window_channel);
   g_clear_object(&self->drop_channel);
   g_clear_object(&self->svg_channel);

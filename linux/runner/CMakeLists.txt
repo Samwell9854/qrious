@@ -8,6 +8,7 @@ project(runner LANGUAGES CXX)
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME}
   "main.cc"
+  "camera.cc"
   "my_application.cc"
   "svg_raster.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
@@ -28,5 +29,11 @@ target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 # already, so it is on every desktop that can run the app.
 pkg_check_modules(RSVG REQUIRED IMPORTED_TARGET librsvg-2.0 cairo)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::RSVG)
+
+# GStreamer captures from the webcam (camera.cc). It is not a GTK dependency, and
+# v4l2src itself comes from gst-plugins-good, needed at run time but optional.
+pkg_check_modules(GST REQUIRED IMPORTED_TARGET
+  gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
+target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GST)
 
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
