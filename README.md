@@ -45,7 +45,7 @@ The code can be saved as a file or, on Linux, copied to the clipboard as an imag
 
 ## Reading a code
 
-Qrious also reads QR codes back. Open an image (PNG, JPEG, GIF, BMP, WebP or SVG), paste one, or drop a file on the window, and the code opens in the form for its format, ready to edit. When a form could not write the code back exactly, it opens as plain text instead, with an offer to use the form anyway. Reading from a webcam is planned ([#4](https://github.com/Samwell9854/qrious/issues/4)).
+Qrious also reads QR codes back. Open an image (PNG, JPEG, GIF, BMP, WebP or SVG), paste one, drop a file on the window, or hold the code up to your webcam, and the code opens in the form for its format, ready to edit. When a picture holds several codes, you pick one. When a form could not write the code back exactly, it opens as plain text instead, with an offer to use the form anyway. Scanning with the webcam needs GStreamer's good plugins (`gst-plugins-good` on Arch).
 
 ## Running it
 
