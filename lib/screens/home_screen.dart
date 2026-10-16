@@ -753,7 +753,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Opened as plain text, which keeps it exactly as scanned, because '
+                      'Opened as plain text, which keeps its text exactly as scanned, because '
                       'the $name form cannot ${reasons.join('; ')}.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colors.onSecondaryContainer,
