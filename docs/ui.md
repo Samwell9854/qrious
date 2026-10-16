@@ -98,6 +98,8 @@ The app bar's **Read a QR code** button opens a menu with two of the three ways 
 
 All three go through `_runImport`, which allows one read at a time and clears its `_importing` flag whatever happens, so a failure can never leave the entry points disabled. A file that is not an image, an image with no code in it, and a clipboard with no image each say so in a snackbar.
 
+An SVG file is drawn to pixels first ([svg_raster.dart](../lib/svg_raster.dart)), on a white background and about 1200 pixels on its long side, because the image decoder cannot read SVG and an SVG code is often black paths on a transparent canvas that would have no contrast to decode. Drawing needs dart:ui, so it happens on the UI isolate in `_importBytes`, ahead of the decoder, for all three entry points; it is a seam of its own (`rasterizeSvgImage`) beside `decodeImage`.
+
 ### Ctrl+V
 
 There is no step to arm before pasting. The clipboard labels its contents by type, and `_onKey` watches Ctrl+V through `HardwareKeyboard` and acts only when [clipboardOffersOnlyImage](../lib/image_clipboard.dart) says the clipboard holds an image and no text. That is exactly when a text field's own paste would have had nothing to paste, so the import never takes a paste away from a field. A clipboard with both, as a copied spreadsheet range has, pastes its text as it always did.

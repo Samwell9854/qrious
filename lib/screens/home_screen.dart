@@ -20,6 +20,7 @@ import '../qr_encoding.dart';
 import '../qr_export.dart';
 import '../qr_png.dart';
 import '../save_location.dart';
+import '../svg_raster.dart';
 import '../widgets/app_title.dart';
 import '../widgets/fill_then_scroll.dart';
 import '../widgets/full_screen_qr.dart';
@@ -35,6 +36,7 @@ class HomeScreen extends StatefulWidget {
     this.readClipboardImage,
     this.clipboardOffersOnlyImage,
     this.decodeImage,
+    this.rasterizeSvgImage,
   });
 
   /// Injectable for tests; the real save dialog when null.
@@ -60,6 +62,11 @@ class HomeScreen extends StatefulWidget {
 
   /// Injectable for tests; the real decoder, off the UI thread, when null.
   final Future<List<String>> Function(Uint8List bytes)? decodeImage;
+
+  /// Injectable for tests; the real SVG drawing when null. A seam of its own, rather
+  /// than part of the default [decodeImage], so a test that stubs the decoder can
+  /// still see an SVG go through drawing first.
+  final Future<Uint8List> Function(Uint8List bytes)? rasterizeSvgImage;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -330,7 +337,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final decode =
         widget.decodeImage ?? (bytes) => compute(decodeQrCodes, bytes);
     final List<String> payloads;
+    final rasterize = widget.rasterizeSvgImage ?? rasterizeSvg;
     try {
+      // Here, ahead of the decoder, so file, clipboard and drop all get it. The
+      // image decoder cannot read SVG, and drawing needs dart:ui on this isolate.
+      if (looksLikeSvg(bytes)) bytes = await rasterize(bytes);
       payloads = await decode(bytes);
     } on UnreadableImageException {
       if (mounted) _say("That file isn't an image Qrious can open.");

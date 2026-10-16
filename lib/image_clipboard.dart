@@ -211,14 +211,19 @@ Future<List<String>> _listTypes(ClipboardReader helper) async {
 Future<List<String>> clipboardTypes() async => _listTypes(_requireReader());
 
 /// The type to read when an image is wanted from [types]: `image/png` when
-/// offered, else the first `image/` type, else null.
+/// offered, else the first raster `image/` type, else `image/svg+xml`, else null.
+///
+/// SVG comes last because it has to be drawn to pixels before it can be read, which
+/// a raster type does not need.
 String? pickImageType(List<String> types) {
   if (types.contains('image/png')) return 'image/png';
   for (final type in types) {
-    if (type.startsWith('image/')) return type;
+    if (type.startsWith('image/') && type != _svgType) return type;
   }
-  return null;
+  return types.contains(_svgType) ? _svgType : null;
 }
+
+const _svgType = 'image/svg+xml';
 
 /// Whether [types] offer an image and no text at all.
 ///

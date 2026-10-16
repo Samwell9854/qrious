@@ -225,6 +225,12 @@ void main() {
       );
     });
 
+    test('takes svg only when no raster image is offered', () {
+      expect(pickImageType(['image/svg+xml', 'image/jpeg']), 'image/jpeg');
+      expect(pickImageType(['image/svg+xml', 'image/png']), 'image/png');
+      expect(pickImageType(['text/plain', 'image/svg+xml']), 'image/svg+xml');
+    });
+
     test('is null with only text', () {
       expect(pickImageType(['text/plain', 'UTF8_STRING']), isNull);
     });

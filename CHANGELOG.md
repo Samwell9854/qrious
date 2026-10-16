@@ -10,6 +10,7 @@ Read a QR code back from a picture, and edit it as a form.
 
 - **Read a QR code from an image.** Use **Read a QR code** in the title bar, then **Open image…** (Ctrl+O) to pick a file, or **Paste image** (Ctrl+V). You can also **drop an image file** on the window. The code opens in the form for its format, so you can change it and make a new one. ([#4](https://github.com/Samwell9854/qrious/issues/4))
 - **Ctrl+V reads an image on the clipboard** without any extra step. It only does so when the clipboard holds an image and no text, so pasting text into a field works as before.
+- **SVG files read too**, including the ones Qrious saves itself.
 - **An image with several codes** asks which one to read.
 - A photo of a printed code reads too, even when the print is speckled. Text in any language comes out intact.
 - **When a code opens as plain text.** If a form could not write the code back exactly (it would drop a field it has no place for, or lay the same content out differently, which makes a different code), the code opens in Text with its text exactly as scanned. A note says which format it was recognised as and why, and **Open in <format> form** loads it into that form anyway, at the cost of that difference. The code drawn from that text can still look different from the original: the same text can be drawn many valid ways, and matching the original pattern comes later.

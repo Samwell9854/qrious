@@ -29,6 +29,8 @@ Future<void> pumpHome(
   Future<Uint8List?> Function()? pick,
   Future<Uint8List?> Function()? clipboard,
   Future<bool> Function()? onlyImage,
+  Future<Uint8List> Function(Uint8List)? rasterize,
+  Future<List<String>> Function(Uint8List)? decode,
   Size size = const Size(1280, 800),
 }) async {
   tester.view.physicalSize = size;
@@ -40,7 +42,8 @@ Future<void> pumpHome(
         pickImageFile: pick ?? () async => bytes,
         readClipboardImage: clipboard ?? () async => bytes,
         clipboardOffersOnlyImage: onlyImage ?? () async => false,
-        decodeImage: (_) async => payloads,
+        decodeImage: decode ?? (_) async => payloads,
+        rasterizeSvgImage: rasterize,
       ),
     ),
   );
@@ -69,6 +72,49 @@ String selectedFormat(WidgetTester tester) => tester
 Finder get notice => find.text('Recognised as Contact (vCard)');
 
 void main() {
+  testWidgets('an SVG file is drawn to pixels before it is decoded', (
+    tester,
+  ) async {
+    final svg = Uint8List.fromList(
+      '<svg xmlns="http://www.w3.org/2000/svg"/>'.codeUnits,
+    );
+    final pixels = Uint8List.fromList([9, 9, 9]);
+    Uint8List? drawn;
+    Uint8List? decoded;
+    await pumpHome(
+      tester,
+      pick: () async => svg,
+      rasterize: (input) async {
+        drawn = input;
+        return pixels;
+      },
+      decode: (input) async {
+        decoded = input;
+        return [wifiPayload];
+      },
+    );
+    await openImage(tester);
+
+    expect(drawn, svg);
+    expect(decoded, pixels);
+    expect(find.text('Code read into Wi-Fi'), findsOneWidget);
+  });
+
+  testWidgets('a raster file skips the SVG drawing', (tester) async {
+    var drew = false;
+    await pumpHome(
+      tester,
+      payloads: [wifiPayload],
+      rasterize: (input) async {
+        drew = true;
+        return input;
+      },
+    );
+    await openImage(tester);
+
+    expect(drew, isFalse);
+  });
+
   testWidgets('an exact Wi-Fi code fills the Wi-Fi form', (tester) async {
     await pumpHome(tester, payloads: [wifiPayload]);
     await tester.tap(find.byType(DropdownButtonFormField<QrFormat>));

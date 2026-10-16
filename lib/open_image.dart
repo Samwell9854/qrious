@@ -15,7 +15,7 @@ Future<Uint8List?> pickImageFile() async {
     acceptedTypeGroups: const [
       XTypeGroup(
         label: 'Images',
-        extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'],
+        extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'],
       ),
     ],
   );
