@@ -43,6 +43,10 @@ The code can be saved as a file or, on Linux, copied to the clipboard as an imag
 | WebP, AVIF | Not planned | No gain over PNG for a two-colour image, and less widely supported. |
 | EPS | Not planned | A legacy print format that SVG and PDF have replaced. |
 
+## Reading a code
+
+Qrious also reads QR codes back. Open an image (PNG, JPEG, GIF, BMP, WebP or SVG), paste one, or drop a file on the window, and the code opens in the form for its format, ready to edit. When a form could not write the code back exactly, it opens as plain text instead, with an offer to use the form anyway. Reading from a webcam is planned ([#4](https://github.com/Samwell9854/qrious/issues/4)).
+
 ## Running it
 
 Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.47+, Dart `^3.11.5`). Only the Linux desktop target is scaffolded. iOS is on indefinite hold: Apple's paid developer subscription isn't worth it for a free single-purpose app.
