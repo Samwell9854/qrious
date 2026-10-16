@@ -26,6 +26,7 @@ depends=(
   'hicolor-icon-theme'
   'libepoxy'
   'libgcc'
+  'librsvg'
   'libstdc++'
   'pango'
   'zlib'

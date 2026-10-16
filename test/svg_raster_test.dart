@@ -1,10 +1,8 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qrious/qr_decoding.dart';
-import 'package:qrious/qr_encoding.dart';
-import 'package:qrious/qr_svg.dart';
 import 'package:qrious/svg_raster.dart';
 
 Uint8List text(String source) => Uint8List.fromList(utf8.encode(source));
@@ -52,47 +50,48 @@ void main() {
   });
 
   group('rasterizeSvg', () {
-    const payload = 'https://example.com/svg';
-    final qr = encodeQr(payload, ErrorCorrection.auto);
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const channel = MethodChannel('qrious/svg');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
-    // runAsync throughout, as in qr_png_test.dart: dart:ui needs the real loop.
-    testWidgets("reads back Qrious's own export", (tester) async {
-      await tester.runAsync(() async {
-        final png = await rasterizeSvg(text(renderQrSvg(qr)));
-        expect(png.take(4), [0x89, 0x50, 0x4E, 0x47]);
-        expect(decodeQrCodes(png), [payload]);
+    tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    test('sends the bytes to the runner and returns its PNG', () async {
+      final png = Uint8List.fromList([0x89, 0x50, 0x4E, 0x47]);
+      MethodCall? seen;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        seen = call;
+        return png;
       });
+
+      final source = text('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+      expect(await rasterizeSvg(source), png);
+      expect(seen?.method, 'rasterize');
+      expect(seen?.arguments, source);
     });
 
-    testWidgets('reads an svg with a viewBox and no width or height', (
-      tester,
-    ) async {
-      await tester.runAsync(() async {
-        final sized = renderQrSvg(qr);
-        final bare = sized.replaceAll(RegExp(r'\s(width|height)="[^"]*"'), '');
-        expect(bare, contains('viewBox'));
-        final png = await rasterizeSvg(text(bare));
-        expect(decodeQrCodes(png), [payload]);
+    test('maps an error from the runner to UnreadableImageException', () async {
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        throw PlatformException(code: 'unreadable', message: 'bad xml');
       });
+      await expectLater(
+        rasterizeSvg(text('<svg>')),
+        throwsA(
+          isA<UnreadableImageException>().having(
+            (e) => e.toString(),
+            'message',
+            contains('bad xml'),
+          ),
+        ),
+      );
     });
 
-    testWidgets('reads black paths on a transparent canvas', (tester) async {
-      await tester.runAsync(() async {
-        final transparent = renderQrSvg(
-          qr,
-        ).replaceAll(RegExp(r'<rect[^>]*/>'), '');
-        final png = await rasterizeSvg(text(transparent));
-        expect(decodeQrCodes(png), [payload]);
-      });
-    });
-
-    testWidgets('rejects an svg that cannot be parsed', (tester) async {
-      await tester.runAsync(() async {
-        await expectLater(
-          rasterizeSvg(text('<svg><path d="M 0 0 L"')),
-          throwsA(isA<UnreadableImageException>()),
-        );
-      });
+    test('maps a missing runner to UnreadableImageException', () async {
+      await expectLater(
+        rasterizeSvg(text('<svg>')),
+        throwsA(isA<UnreadableImageException>()),
+      );
     });
   });
 }

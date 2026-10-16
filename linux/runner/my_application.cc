@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "svg_raster.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -11,6 +12,7 @@ struct _MyApplication {
   GtkWindow* window;
   FlMethodChannel* window_channel;
   FlMethodChannel* drop_channel;
+  FlMethodChannel* svg_channel;
   // Whether "enter" was already sent for the drag under way: drag-motion repeats.
   gboolean drag_entered;
   // Whether the window was already full screen when Dart asked for it, so that
@@ -97,6 +99,41 @@ static void window_method_call_cb(FlMethodChannel* channel,
       gtk_window_unfullscreen(self->window);
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  }
+
+  fl_method_call_respond(method_call, response, nullptr);
+}
+
+// Answers the "qrious/svg" channel: rasterize takes the bytes of an SVG file and
+// answers with a PNG of it (lib/svg_raster.dart). Drawn here, by librsvg, because
+// Flutter's own SVG packages lack parts of the format (nested <svg>, which other
+// generators emit).
+static void svg_method_call_cb(FlMethodChannel* channel,
+                               FlMethodCall* method_call, gpointer user_data) {
+  FlValue* args = fl_method_call_get_args(method_call);
+  g_autoptr(FlMethodResponse) response = nullptr;
+
+  if (g_strcmp0(fl_method_call_get_name(method_call), "rasterize") != 0) {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  } else if (fl_value_get_type(args) != FL_VALUE_TYPE_UINT8_LIST) {
+    response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+        "bad-args", "rasterize takes the bytes of an SVG", nullptr));
+  } else {
+    g_autoptr(GBytes) svg = g_bytes_new(fl_value_get_uint8_list(args),
+                                        fl_value_get_length(args));
+    g_autoptr(GError) error = nullptr;
+    g_autoptr(GBytes) png = qrious_svg_to_png(svg, &error);
+    if (png == nullptr) {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "unreadable", error != nullptr ? error->message : "Unknown error",
+          nullptr));
+    } else {
+      gsize length = 0;
+      const guint8* data =
+          static_cast<const guint8*>(g_bytes_get_data(png, &length));
+      g_autoptr(FlValue) result = fl_value_new_uint8_list(data, length);
+      response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+    }
   }
 
   fl_method_call_respond(method_call, response, nullptr);
@@ -213,6 +250,12 @@ static void my_application_activate(GApplication* application) {
   fl_method_channel_set_method_call_handler(
       self->window_channel, window_method_call_cb, self, nullptr);
 
+  self->svg_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)), "qrious/svg",
+      FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(
+      self->svg_channel, svg_method_call_cb, self, nullptr);
+
   // Dropped files arrive as a text/uri-list and nothing else. Not the
   // application/vnd.portal.filetransfer target that desktop_drop used: it hands the
   // files over through the FileTransfer portal, which refuses an unsandboxed app
@@ -277,6 +320,7 @@ static void my_application_dispose(GObject* object) {
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_object(&self->window_channel);
   g_clear_object(&self->drop_channel);
+  g_clear_object(&self->svg_channel);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
