@@ -198,4 +198,26 @@ void main() {
     final rotated = img.copyRotate(_render('rotated payload'), angle: 90);
     expect(decodeQrCodes(img.encodePng(rotated)), ['rotated payload']);
   });
+
+  test('a light-on-dark code decodes', () {
+    final inverted = img.invert(_render('https://example.com/dark'));
+    expect(decodeQrCodes(img.encodePng(inverted)), [
+      'https://example.com/dark',
+    ]);
+  });
+
+  test('a light-on-dark code comes back beside a dark-on-light one', () {
+    final canvas = _pair('dark on light', 'light on dark', sideBySide: true);
+    // Invert the right-hand code only, as on a page that mixes both.
+    final right = _render('light on dark').width;
+    for (final p in canvas) {
+      if (p.x >= canvas.width - right) {
+        p.setRgb(255 - p.r, 255 - p.g, 255 - p.b);
+      }
+    }
+    expect(decodeQrCodes(img.encodePng(canvas)), [
+      'dark on light',
+      'light on dark',
+    ]);
+  });
 }

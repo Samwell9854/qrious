@@ -78,16 +78,22 @@ List<String> _decodeImage(img.Image original) {
   // only at full size. So every attempt runs and what they find is pooled: stopping at
   // the first that finds anything would offer one of the two codes and hide the other.
   // An image with no code runs every attempt anyway, so the slowest case is unchanged.
+  //
+  // Each attempt also runs on the inverted image: the detector only finds dark modules
+  // on a light ground, and a code shown light on dark (a dark-themed app or web page)
+  // is otherwise never seen. One image can hold both kinds, so this pools too.
   final hits = <_Hit>[];
   for (final divisor in const [1, 2, 4]) {
     final scaled = divisor == 1 ? image : _scaled(image, divisor);
     if (scaled == null) continue;
     final source = _luminanceSource(scaled);
-    for (final makeBinarizer in <Binarizer Function(LuminanceSource)>[
-      HybridBinarizer.new,
-      GlobalHistogramBinarizer.new,
-    ]) {
-      _search(BinaryBitmap(makeBinarizer(source)), 0, 0, 0, divisor, hits);
+    for (final luminance in [source, source.invert()]) {
+      for (final makeBinarizer in <Binarizer Function(LuminanceSource)>[
+        HybridBinarizer.new,
+        GlobalHistogramBinarizer.new,
+      ]) {
+        _search(BinaryBitmap(makeBinarizer(luminance)), 0, 0, 0, divisor, hits);
+      }
     }
   }
   return _ordered(hits);

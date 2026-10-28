@@ -2,6 +2,14 @@
 
 What each release changes, for the people using the app. Each section becomes that version's GitHub release notes, so it is written before the release is tagged. Earlier releases predate this file.
 
+## 2026.10.5
+
+Codes shown light on dark now read.
+
+### Reading a code
+
+- **Light-on-dark codes read**, from an image file, a pasted image or the camera. A code drawn in light squares on a dark background, as dark-themed apps and web pages often show them, was reported as "No QR code found". A picture holding one of each kind offers both.
+
 ## 2026.10.4
 
 Scan a QR code with your webcam.
