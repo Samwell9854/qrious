@@ -9,7 +9,8 @@ Everything lives in [lib/screens/home_screen.dart](../lib/screens/home_screen.da
 - `_values` — `Map<String, String>`, one entry per field of the current format.
 - `_controllers` — `TextEditingController` per *text-like* field only (dropdown and checkbox fields have no controller).
 - `_replacement` — the last Clear or read, kept for Undo; `_offer` — the notice a read leaves behind when its code opened as text (see [Reading a code](#reading-a-code)).
-- `_errorCorrection` and `_imageSize` — the output choices under the preview, `auto` and `medium` to start. A format switch keeps them: they describe the output, not the content.
+- `_settings` — the [settings](#settings) the app launched with, as changed since.
+- `_errorCorrection` and `_imageSize` — the output choices under the preview, starting from `_settings`. A format switch keeps them: they describe the output, not the content.
 
 `_loadForm([saved])` is the reset point: it disposes old controllers, clears both maps, then seeds each field from `saved`, or with its initial value without it, and attaches a listener that writes controller text back into `_values` and calls `setState`. It runs in `initState` and on every format switch.
 
@@ -62,7 +63,7 @@ Below that, `_buildOutputOptions` puts the **Error correction** and **Image size
 
 [lib/qr_png.dart](../lib/qr_png.dart) sizes the image in whole pixels per module (`ImageSize`: 4, 8, 16 or 32), with the spec's four-module quiet zone. Per module rather than per image, so a short URL makes a small file and a dense vCard a large one, and every module edge falls on a pixel boundary instead of anti-aliasing into grey. [lib/qr_svg.dart](../lib/qr_svg.dart) draws the same matrix in module units, one path segment per run of dark modules; `ImageSize` only sets the width and height an SVG opens at.
 
-The spec letters, a freely typed size and the other spec-level knobs belong to expert mode ([#13](https://github.com/Samwell9854/qrious/issues/13)); changing the defaults belongs to settings ([#10](https://github.com/Samwell9854/qrious/issues/10)).
+The spec letters, a freely typed size and the other spec-level knobs belong to expert mode ([#13](https://github.com/Samwell9854/qrious/issues/13)). The level and size each launch starts at are [settings](#settings).
 
 ## Showing the code full screen
 
@@ -78,7 +79,7 @@ Full screen means the screen, not just the window. Flutter has no desktop call f
 
 The preview panel carries **Save** and **Copy image** buttons, both enabled on the same condition as the preview itself, side by side in a `Row` of `Expanded` children so two buttons still fit the phone layout. **Copy image** is only built where [imageClipboardSupported](../lib/image_clipboard.dart) is true, and always copies a PNG.
 
-**Save** opens a menu of [ExportFileType](../lib/qr_export.dart)s, PNG image and SVG image, instead of offering the types as filters in the save dialog: `file_selector_linux` does not report which filter was picked, and GTK does not rename the file when the filter changes. Settings may later let a default type skip the menu ([#10](https://github.com/Samwell9854/qrious/issues/10)). The pick goes to [pickSaveLocation](../lib/save_location.dart), which offers only that type; the returned path gets the type's extension unless it already ends in it, so `code.png` saved as SVG becomes `code.png.svg` rather than an SVG misnamed as a PNG. Then the type renders at the chosen size and the file is written. Cancelling is not a failure and says nothing, and a write that fails reports itself in a snackbar rather than throwing.
+**Save** opens a menu of [ExportFileType](../lib/qr_export.dart)s, PNG image and SVG image, instead of offering the types as filters in the save dialog: `file_selector_linux` does not report which filter was picked, and GTK does not rename the file when the filter changes. When the *Save as* [setting](#settings) names a type, the button reads **Save PNG** or **Save SVG** and skips the menu. The pick goes to [pickSaveLocation](../lib/save_location.dart), which offers only that type; the returned path gets the type's extension unless it already ends in it, so `code.png` saved as SVG becomes `code.png.svg` rather than an SVG misnamed as a PNG. Then the type renders at the chosen size and the file is written. Cancelling is not a failure and says nothing, and a write that fails reports itself in a snackbar rather than throwing.
 
 The saved image is not the widget on screen. `QrPainter` paints modules and nothing else, so the preview relies on its white `Container` for a background and on the panel's padding for the quiet zone the spec requires — neither of which exists in a file. `renderQrPng` and `renderQrSvg` therefore paint black on an opaque white square with their own margin, whatever the theme is doing, because a transparent PNG dropped on a dark background is a code no scanner can read.
 
@@ -147,3 +148,11 @@ The app bar's title is [AppTitle](../lib/widgets/app_title.dart): the app name w
 ## Theming
 
 `main.dart` sets Material 3 with `ColorScheme.fromSeed(seedColor: Colors.indigo)` and a matching dark scheme; the system setting selects between them. Use `Theme.of(context).colorScheme` tokens rather than literal colors — the two deliberate exceptions are the white QR backdrop and the grey placeholder text.
+
+## Settings
+
+A gear in the title bar opens [SettingsView](../lib/widgets/settings_view.dart): a dialog at 700px and wider, a full-screen page below, as the camera scanner does. It holds what each launch starts with: **Error correction** and **Image size**, the same choices as the dropdowns under the preview, and **Save as** (*Ask each time*, *Always PNG image* or *Always SVG image*). These are defaults, not the current code's choices: the dropdowns under the preview still change the code in front of the user, for this session only. Changing a default also sets the matching dropdown, since someone who has just picked it expects to see it take effect; the dropdowns are keyed by their value for this, because `initialValue` is read only when a field is created.
+
+Each setting's built-in choice is labelled *(default)*, as in *Auto (default)*, so one setting can go back to it without resetting the rest. The label is in settings only: under the preview, "default" could be read as the saved choice rather than the built-in one. **Reset to defaults** (in the dialog's actions, or the page's app bar) puts all three back at once, asks for no confirmation since every value it changes is in view and one pick away, and is disabled when there is nothing to reset.
+
+Every change applies and is written at once, with no OK or Cancel, as KDE's and GNOME's settings do. [lib/settings.dart](../lib/settings.dart) writes them as JSON to `$XDG_CONFIG_HOME/qrious/settings.json`, or `~/.config/qrious/settings.json` when that is unset, by writing a file beside it and renaming it over, so a crash mid-write cannot leave half a file. Values are stored by enum name, not label, so renaming a label keeps everyone's choice. `main` reads the file before the first frame, so the screen opens on the saved defaults rather than switching to them a moment later. Reading never fails the launch: a missing or broken file gives the defaults, and an unknown value (a hand edit, or a file from a newer version) costs that one setting. A write that fails says so in a snackbar. `HomeScreen` takes the launch `settings` and a `saveSettings` seam, so tests never touch the real file.

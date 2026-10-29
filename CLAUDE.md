@@ -36,6 +36,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/svg_raster.dart](lib/svg_raster.dart) | Spots an SVG file by its first bytes and asks the Linux runner (`linux/runner/svg_raster.cc`, librsvg, over the `qrious/svg` channel) to draw it to a white-background PNG, so the decoder can read it |
 | [lib/qr_decoding.dart](lib/qr_decoding.dart) | Reads the QR codes in an image file: zxing2 with two binarizers and three scales, finding several codes per image |
 | [lib/webcam.dart](lib/webcam.dart), [lib/widgets/camera_scanner.dart](lib/widgets/camera_scanner.dart) | The webcam over the `qrious/camera` channel (the Linux runner's `linux/runner/camera.cc`, GStreamer), and the scanner that reads codes from it, on its own or on Capture |
+| [lib/settings.dart](lib/settings.dart), [lib/widgets/settings_view.dart](lib/widgets/settings_view.dart) | What each launch starts with, read from and written to `~/.config/qrious/settings.json`; and the view that changes it |
 | [lib/open_image.dart](lib/open_image.dart) | The open-image dialog, behind a typedef the screen can stub in tests |
 | [lib/version.dart](lib/version.dart) | Reads and parses the running build's version |
 | [tool/](tool/) | Release tooling — the version format rule, the tagging script, and the build-number bump |

@@ -4,11 +4,22 @@ What each release changes, for the people using the app. Each section becomes th
 
 ## 2026.10.5
 
-Codes shown light on dark now read.
+Settings for what each new code starts with, and codes shown light on dark now read.
+
+### Settings
+
+- **Settings**, behind the gear in the title bar, choose the error correction and image size each launch starts with. The choices beside the code still change the code in front of you. ([#10](https://github.com/Samwell9854/qrious/issues/10))
+- **Save without the menu.** Set *Save as* to *Always PNG image* or *Always SVG image*, and the button becomes **Save PNG** or **Save SVG** and goes straight to the save dialog. *Ask each time* keeps the menu.
+- Each setting marks its built-in choice, such as *Auto (default)*, and **Reset to defaults** puts all of them back at once.
+- Changes apply as you make them and are kept in `~/.config/qrious/settings.json`.
 
 ### Reading a code
 
 - **Light-on-dark codes read**, from an image file, a pasted image or the camera. A code drawn in light squares on a dark background, as dark-themed apps and web pages often show them, was reported as "No QR code found". A picture holding one of each kind offers both.
+
+### Issues
+
+Fixes #10.
 
 ## 2026.10.4
 

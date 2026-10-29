@@ -19,12 +19,14 @@ import '../qr_encoding.dart';
 import '../qr_export.dart';
 import '../qr_png.dart';
 import '../save_location.dart';
+import '../settings.dart';
 import '../svg_raster.dart';
 import '../webcam.dart';
 import '../widgets/app_title.dart';
 import '../widgets/camera_scanner.dart';
 import '../widgets/fill_then_scroll.dart';
 import '../widgets/full_screen_qr.dart';
+import '../widgets/settings_view.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -41,7 +43,15 @@ class HomeScreen extends StatefulWidget {
     this.rasterizeSvgImage,
     this.webcam,
     this.decodeFrame,
+    this.settings = const Settings(),
+    this.saveSettings,
   });
+
+  /// What the app was launched with, read from disk before the first frame.
+  final Settings settings;
+
+  /// Injectable for tests; the settings file when null.
+  final SettingsSaver? saveSettings;
 
   /// Injectable for tests; the real save dialog when null.
   final SaveLocationPicker? pickSaveLocation;
@@ -94,9 +104,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// Password fields the user has asked to see in the clear.
   final Set<String> _revealed = {};
 
+  late Settings _settings = widget.settings;
+
   // Not reset on a format switch: they describe the output, not the content.
-  ErrorCorrection _errorCorrection = ErrorCorrection.auto;
-  ImageSize _imageSize = ImageSize.medium;
+  late ErrorCorrection _errorCorrection = _settings.errorCorrection;
+  late ImageSize _imageSize = _settings.imageSize;
 
   @override
   void initState() {
@@ -634,7 +646,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         appBar: AppBar(
           title: const AppTitle(),
           centerTitle: false,
-          actions: [_buildReadMenu(), const SizedBox(width: 8)],
+          actions: [
+            _buildReadMenu(),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Settings',
+              onPressed: _openSettings,
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
         body: Stack(
           children: [
@@ -659,6 +679,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  void _openSettings() =>
+      showSettings(context, settings: _settings, onChanged: _changeSettings);
+
+  /// Applies [settings] and writes them for the next launch. A changed default also
+  /// changes the current code's control: having just picked it, the user expects to
+  /// see it take effect, not only after a restart.
+  Future<void> _changeSettings(Settings settings) async {
+    final before = _settings;
+    setState(() {
+      _settings = settings;
+      if (settings.errorCorrection != before.errorCorrection) {
+        _errorCorrection = settings.errorCorrection;
+      }
+      if (settings.imageSize != before.imageSize) {
+        _imageSize = settings.imageSize;
+      }
+    });
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await (widget.saveSettings ?? saveSettings)(settings);
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not save settings: $error')),
+      );
+    }
   }
 
   /// The ways to read a code from an image, behind one button. The shortcuts shown
@@ -1254,6 +1301,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// Save straight to the dialog when settings name a file type, else a menu of the
+  /// types: the save dialog itself cannot offer them, as on Linux it does not report
+  /// which one was picked.
+  Widget _buildSaveButton(bool ready) {
+    const icon = Icon(Icons.download, size: 18);
+    if (_settings.saveFileType case final type?) {
+      return FilledButton.icon(
+        onPressed: ready ? () => _saveQr(type) : null,
+        icon: icon,
+        label: Text('Save ${type.extension.toUpperCase()}'),
+      );
+    }
+    return MenuAnchor(
+      menuChildren: [
+        for (final type in ExportFileType.values)
+          MenuItemButton(
+            onPressed: () => _saveQr(type),
+            child: Text(type.label),
+          ),
+      ],
+      builder: (context, menu, _) => FilledButton.icon(
+        onPressed: ready
+            ? () => menu.isOpen ? menu.close() : menu.open()
+            : null,
+        icon: icon,
+        label: const Text('Save'),
+      ),
+    );
+  }
+
   Future<void> _saveQr(ExportFileType type) async {
     final qr = _encode(_qrString);
     if (qr == null) return;
@@ -1337,6 +1414,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         Expanded(
           child: DropdownButtonFormField<ErrorCorrection>(
+            // Keyed by the value so a default changed in settings shows here too:
+            // initialValue is read only when the field is created.
+            key: ValueKey(_errorCorrection),
             initialValue: _errorCorrection,
             isExpanded: true,
             decoration: const InputDecoration(
@@ -1363,6 +1443,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SizedBox(width: 12),
         Expanded(
           child: DropdownButtonFormField<ImageSize>(
+            key: ValueKey(_imageSize),
             initialValue: _imageSize,
             isExpanded: true,
             decoration: const InputDecoration(
@@ -1531,26 +1612,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         // still fit the 390px phone layout.
         Row(
           children: [
-            Expanded(
-              // A menu rather than a choice in the save dialog, which on Linux
-              // cannot report which file type was picked.
-              child: MenuAnchor(
-                menuChildren: [
-                  for (final type in ExportFileType.values)
-                    MenuItemButton(
-                      onPressed: () => _saveQr(type),
-                      child: Text(type.label),
-                    ),
-                ],
-                builder: (context, menu, _) => FilledButton.icon(
-                  onPressed: ready
-                      ? () => menu.isOpen ? menu.close() : menu.open()
-                      : null,
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text('Save'),
-                ),
-              ),
-            ),
+            Expanded(child: _buildSaveButton(ready)),
             if (imageClipboardSupported) ...[
               const SizedBox(width: 12),
               Expanded(
