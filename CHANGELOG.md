@@ -2,6 +2,41 @@
 
 What each release changes, for the people using the app. Each section becomes that version's GitHub release notes, so it is written before the release is tagged. Earlier releases predate this file.
 
+## 2026.10.6
+
+Expert mode: everything the QR spec allows, from the symbol version to every vCard phone type. Beginner codes also get smaller.
+
+### Expert mode
+
+- **Turn on Expert mode** at the top of Settings. Beginner mode stays as it was; Expert mode names things as the spec does and offers the rest. Turning it off keeps your expert choices, unused, for when you turn it back on. ([#13](https://github.com/Samwell9854/qrious/issues/13))
+- **Error correction by its letter**, as in *Q – High (25%)*, with Auto still on offer.
+- **Any image size**, as a number of pixels per module from 1, up to an image of 32,768 pixels a side.
+- **The quiet zone**, the white margin around the code, from 0 modules up. The spec's 4 is the default, and the preview, full screen, saved files and copied images all use it.
+- **The version** (1 to 40, the code's size), **the mask** (0 to 7) and **the encoding mode** (numeric, alphanumeric or byte for the whole text), each Auto by default.
+- **Nothing impossible is offered.** A choice the text cannot take is greyed out with the reason, such as *Numeric · digits only*. When the text outgrows a choice you made, the code uses the nearest that fits and says so under the code, and your choice comes back once the text is short enough.
+- **The caption under the code** shows the version and its size, the mask and the modes used.
+- Each of these has a launch default in Settings, shown in Expert mode.
+- Version 15 at H is greyed out: the QR library Qrious uses draws that combination wrong, and it has been reported.
+
+### Formats, in expert mode
+
+- **Location:** altitude and uncertainty, in metres.
+- **Contact (MeCard):** nickname, name reading, video phone, birthday (with a calendar) and note.
+- **Text Message (SMS):** the `sms:` form, which can text several people at once.
+- **Contact (vCard):** every phone and email type from the vCard spec, such as Voice, Pager or Internet, several at once, and *Main* to mark the main number or address.
+- **Reading a code** with any of these opens it in its form in Expert mode. In Beginner mode it opens as text, and the notice says Expert mode has the fields for it.
+
+### Codes and images
+
+- **Smaller codes.** Digits and upper-case text are now written in the QR spec's compact modes, so a code with a long number in it can come out a size smaller.
+- **The preview's white margin is the quiet zone**, so the code fills more of the box. What you see is exactly what is saved.
+- **Saved and copied PNGs are made differently**: black and white, smaller files, and quicker to make at large sizes.
+- An SMS number no longer takes a pause (`,`), which means nothing to a text message.
+
+### Issues
+
+Fixes #13.
+
 ## 2026.10.5
 
 Settings for what each new code starts with, and codes shown light on dark now read.

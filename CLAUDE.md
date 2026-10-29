@@ -53,7 +53,7 @@ See [docs/formats.md](docs/formats.md) for the contract and a walkthrough of add
 
 ## Product stance
 
-**No artificial limits.** The app does not decide that a user's choice is a mistake: anything the QR spec allows should be reachable. Ease of use comes from defaults and plain-language choices, not from removing options. The planned split is a beginner mode, which is what is built today, and an expert mode that exposes the rest ([#13](https://github.com/Samwell9854/qrious/issues/13)). A new control starts in its beginner form, and its expert form goes on that issue.
+**No artificial limits.** The app does not decide that a user's choice is a mistake: anything the QR spec allows should be reachable. Ease of use comes from defaults and plain-language choices, not from removing options. The split is a beginner mode, sensible defaults in plain words, and an expert mode, switched on in Settings, that exposes the rest by the spec's own names ([#13](https://github.com/Samwell9854/qrious/issues/13)). Expert mode never offers what cannot be had: a choice the current code cannot take is greyed out with the reason, and one the code outgrows gives way to the nearest that fits, with the caption saying so. Switching back to beginner keeps expert choices and fields but does not apply them. A new control is built in its beginner form, and its expert form is described in that feature's own issue, or a new issue when it has none; a format adds expert fields by declaring them ([docs/formats.md](docs/formats.md#expert-fields)).
 
 ## Commit messages
 
