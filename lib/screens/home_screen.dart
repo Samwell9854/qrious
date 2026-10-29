@@ -1427,10 +1427,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 .map(
                   (level) => DropdownMenuItem(
                     value: level,
-                    child: Text(switch (level.recoveryPercent) {
-                      null => level.label,
-                      final percent => '${level.label} ($percent%)',
-                    }, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      level.choiceLabel(expert: _settings.expertMode),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(),

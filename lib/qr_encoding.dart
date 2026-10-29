@@ -3,18 +3,26 @@ import 'package:qr_flutter/qr_flutter.dart';
 /// The error-correction choices offered to the user.
 ///
 /// The QR spec defines exactly four levels, each restoring a fixed share of a
-/// damaged symbol. The names here are the beginner wording; the spec letters (L, M,
-/// Q, H) are kept for expert mode, which does not exist yet.
+/// damaged symbol. The names here are the beginner wording; expert mode puts the
+/// spec letters (L, M, Q, H) in front of them.
 enum ErrorCorrection {
-  auto('Auto', null, null),
-  low('Low', QrErrorCorrectLevel.L, 7),
-  medium('Medium', QrErrorCorrectLevel.M, 15),
-  high('High', QrErrorCorrectLevel.Q, 25),
-  highest('Highest', QrErrorCorrectLevel.H, 30);
+  auto('Auto', null, null, null),
+  low('Low', 'L', QrErrorCorrectLevel.L, 7),
+  medium('Medium', 'M', QrErrorCorrectLevel.M, 15),
+  high('High', 'Q', QrErrorCorrectLevel.Q, 25),
+  highest('Highest', 'H', QrErrorCorrectLevel.H, 30);
 
-  const ErrorCorrection(this.label, this.qrLevel, this.recoveryPercent);
+  const ErrorCorrection(
+    this.label,
+    this.letter,
+    this.qrLevel,
+    this.recoveryPercent,
+  );
 
   final String label;
+
+  /// The spec's name for the level; null for [auto].
+  final String? letter;
 
   /// The `qr` package's constant for this level; null for [auto], which resolves
   /// to one of the others per payload.
@@ -22,6 +30,15 @@ enum ErrorCorrection {
 
   /// Roughly how much of the symbol can be damaged and still read.
   final int? recoveryPercent;
+
+  /// How the level is offered in a menu: `High (25%)`, or `Q – High (25%)` in
+  /// expert mode. Auto is `Auto` in both.
+  String choiceLabel({required bool expert}) =>
+      switch ((letter, recoveryPercent)) {
+        (final letter?, final percent?) =>
+          expert ? '$letter – $label ($percent%)' : '$label ($percent%)',
+        _ => label,
+      };
 }
 
 /// A payload encoded into a QR symbol, with the error correction it ended up at.

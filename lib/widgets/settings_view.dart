@@ -67,10 +67,14 @@ class _SettingsViewState extends State<SettingsView> {
 
   static const _defaults = Settings();
 
-  void _reset() => _change(_defaults);
+  /// The defaults, in the mode the user is in: the mode is how they use the app, not a
+  /// default for new codes, and resetting it would hide the very choices just reset.
+  Settings get _resetTo => _defaults.copyWith(expertMode: _settings.expertMode);
+
+  void _reset() => _change(_resetTo);
 
   Widget _buildResetButton() => TextButton(
-    onPressed: _settings == _defaults ? null : _reset,
+    onPressed: _settings == _resetTo ? null : _reset,
     child: const Text('Reset to defaults'),
   );
 
@@ -79,6 +83,17 @@ class _SettingsViewState extends State<SettingsView> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Expert mode'),
+          subtitle: const Text(
+            'Everything the QR spec allows, named as the spec names it.',
+          ),
+          value: _settings.expertMode,
+          onChanged: (expert) =>
+              _change(_settings.copyWith(expertMode: expert)),
+        ),
+        const Divider(height: 32),
         Text(
           'Every new code starts with these. The choices beside the code still '
           'change it on its own.',
@@ -100,10 +115,10 @@ class _SettingsViewState extends State<SettingsView> {
               DropdownMenuItem(
                 value: level,
                 child: Text(
-                  _marked(switch (level.recoveryPercent) {
-                    null => level.label,
-                    final percent => '${level.label} ($percent%)',
-                  }, level == _defaults.errorCorrection),
+                  _marked(
+                    level.choiceLabel(expert: _settings.expertMode),
+                    level == _defaults.errorCorrection,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),

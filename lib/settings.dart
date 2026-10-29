@@ -9,10 +9,15 @@ import 'qr_png.dart';
 /// from these and then change the current code only.
 class Settings {
   const Settings({
+    this.expertMode = false,
     this.errorCorrection = ErrorCorrection.auto,
     this.imageSize = ImageSize.medium,
     this.saveFileType,
   });
+
+  /// Whether the app offers everything the spec allows rather than the beginner set.
+  /// Unlike the rest, it is not a default for new codes, and Reset leaves it alone.
+  final bool expertMode;
 
   final ErrorCorrection errorCorrection;
   final ImageSize imageSize;
@@ -21,10 +26,12 @@ class Settings {
   final ExportFileType? saveFileType;
 
   Settings copyWith({
+    bool? expertMode,
     ErrorCorrection? errorCorrection,
     ImageSize? imageSize,
     ExportFileType? Function()? saveFileType,
   }) => Settings(
+    expertMode: expertMode ?? this.expertMode,
     errorCorrection: errorCorrection ?? this.errorCorrection,
     imageSize: imageSize ?? this.imageSize,
     saveFileType: saveFileType != null ? saveFileType() : this.saveFileType,
@@ -32,6 +39,7 @@ class Settings {
 
   /// Enum names rather than labels, so renaming a label does not lose anyone's choice.
   Map<String, Object?> toJson() => {
+    'expertMode': expertMode,
     'errorCorrection': errorCorrection.name,
     'imageSize': imageSize.name,
     'saveFileType': saveFileType?.name ?? 'ask',
@@ -45,6 +53,10 @@ class Settings {
         values.where((v) => v.name == name).firstOrNull;
     const defaults = Settings();
     return Settings(
+      expertMode: switch (map['expertMode']) {
+        final bool expert => expert,
+        _ => defaults.expertMode,
+      },
       errorCorrection:
           named(ErrorCorrection.values, map['errorCorrection']) ??
           defaults.errorCorrection,
@@ -57,12 +69,14 @@ class Settings {
   @override
   bool operator ==(Object other) =>
       other is Settings &&
+      other.expertMode == expertMode &&
       other.errorCorrection == errorCorrection &&
       other.imageSize == imageSize &&
       other.saveFileType == saveFileType;
 
   @override
-  int get hashCode => Object.hash(errorCorrection, imageSize, saveFileType);
+  int get hashCode =>
+      Object.hash(expertMode, errorCorrection, imageSize, saveFileType);
 }
 
 /// Writes [settings] where the next launch reads them. Throws when that fails.

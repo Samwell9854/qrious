@@ -124,6 +124,7 @@ void main() {
       await saveSettings(custom, file);
       expect(await loadSettings(file), custom);
       expect(jsonDecode(file.readAsStringSync()), {
+        'expertMode': false,
         'errorCorrection': 'high',
         'imageSize': 'large',
         'saveFileType': 'svg',
@@ -148,6 +149,18 @@ void main() {
       final file = File('${temp.path}/settings.json')
         ..writeAsStringSync('{"errorCorrection": ');
       expect(await loadSettings(file), const Settings());
+    });
+
+    test('expert mode round-trips, and a non-boolean reads as off', () async {
+      final file = File('${temp.path}/settings.json');
+      await saveSettings(const Settings(expertMode: true), file);
+      expect(await loadSettings(file), const Settings(expertMode: true));
+
+      file.writeAsStringSync('{"expertMode": "yes", "imageSize": "large"}');
+      expect(
+        await loadSettings(file),
+        const Settings(imageSize: ImageSize.large),
+      );
     });
 
     test('an unknown value costs that setting only', () async {
@@ -193,6 +206,23 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(ExportFileType.png.label), findsOneWidget);
       expect(find.text(ExportFileType.svg.label), findsOneWidget);
+    });
+
+    testWidgets('expert mode names error correction by its spec letter', (
+      tester,
+    ) async {
+      await pumpHome(tester, settings: custom.copyWith(expertMode: true));
+      expect(find.text('Q – High (25%)'), findsOneWidget);
+      await tester.tap(find.text('Q – High (25%)'));
+      await tester.pumpAndSettle();
+      for (final label in [
+        'Auto',
+        'L – Low (7%)',
+        'M – Medium (15%)',
+        'H – Highest (30%)',
+      ]) {
+        expect(find.text(label), findsWidgets);
+      }
     });
 
     testWidgets('a failed write says so', (tester) async {
@@ -277,6 +307,36 @@ void main() {
             saveFileType: ExportFileType.png,
           ),
         ]);
+      });
+
+      testWidgets('switch expert mode on and off, saving each', (tester) async {
+        final saved = await pumpHome(tester, size: size, settings: custom);
+        await openSettings(tester);
+        expect(find.text('Q – High (25%)'), findsNothing);
+
+        await tester.tap(find.text('Expert mode'));
+        await tester.pumpAndSettle();
+        expect(find.text('Q – High (25%)'), findsWidgets);
+        expect(saved.last, custom.copyWith(expertMode: true));
+
+        await tester.tap(find.text('Expert mode'));
+        await tester.pumpAndSettle();
+        expect(find.text('Q – High (25%)'), findsNothing);
+        expect(saved.last, custom);
+      });
+
+      testWidgets('reset keeps expert mode on', (tester) async {
+        final saved = await pumpHome(
+          tester,
+          size: size,
+          settings: custom.copyWith(expertMode: true),
+        );
+        await openSettings(tester);
+        final reset = find.widgetWithText(TextButton, 'Reset to defaults');
+        await tester.tap(reset);
+        await tester.pumpAndSettle();
+        expect(saved, const [Settings(expertMode: true)]);
+        expect(tester.widget<TextButton>(reset).onPressed, isNull);
       });
 
       testWidgets('a changed default shows on the current code', (
