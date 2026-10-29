@@ -58,7 +58,8 @@ class Sample extends QrFormat {
   String buildQrString(Map<String, String> v) => [
     'S:${v['name'] ?? ''}',
     v['note'] ?? '',
-    v['form'] ?? '',
+    // A dropdown beginner mode does not write reads as its default.
+    v['form'] ?? 'short',
     v['to'] ?? '',
     for (final e in QrEntries.read(v, phones)) '${e['kind']}=${e['number']}',
   ].join(';');

@@ -178,11 +178,17 @@ abstract final class QrForm {
   ) {
     final beginner = applied(fields, values, expert: false);
     final expert = applied(fields, values, expert: true);
-    // A key beginner mode leaves out stands for its empty value: 0 for a group's
-    // count, nothing for anything else.
+    // A key beginner mode leaves out stands for what an untouched field holds: a
+    // dropdown's first option, an unticked box, no group entries, else nothing.
     String lost(String key, QrField field) =>
         beginner[key] ??
-        (key == field.id && field.type == QrFieldType.group ? '0' : '');
+        switch (field.type) {
+          _ when key != field.id => '',
+          QrFieldType.dropdown => field.options!.first,
+          QrFieldType.checkbox => 'false',
+          QrFieldType.group => '0',
+          _ => '',
+        };
     return [
       for (final field in fields)
         if ([

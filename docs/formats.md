@@ -106,7 +106,7 @@ The unit tests check payloads against the specs; what a phone does with them is 
 
 `parse` is the inverse of `buildQrString`, used when a code is read from an image (see [ui.md](ui.md#reading-a-code)). It returns null when the payload is not this format's, and otherwise the values to load into the form, in the same shape `buildQrString` reads, with group entries expanded under their `<group>.<i>.<part>` keys.
 
-Returning values is a **claim**: "this payload is mine". A format claims only what is unmistakably its own, by prefix (`WIFI:`, `MECARD:`, `BEGIN:VCARD`, `mailto:`, `tel:`, `SMSTO:`, `geo:`), ignoring case. The URL format claims only `http://` and `https://`, since other schemes (`ftp:`, an app's own) are not something its form would write back. **Text claims nothing**: it is what the importer falls back to for a payload nobody claims, so it cannot also be a format that recognises.
+Returning values is a **claim**: "this payload is mine". A format claims only what is unmistakably its own, by prefix (`WIFI:`, `MECARD:`, `BEGIN:VCARD`, `mailto:`, `tel:`, `SMSTO:`, `geo:`), ignoring case. SMS claims `sms:` as well as `SMSTO:`. The URL format claims only `http://` and `https://`, since other schemes (`ftp:`, an app's own) are not something its form would write back. **Text claims nothing**: it is what the importer falls back to for a payload nobody claims, so it cannot also be a format that recognises.
 
 A claim does not promise the form can hold everything. `unsupported` lists, named the way the payload names them, what the form has nowhere to put: a vCard's PO box or a second `ORG` unit, a Wi-Fi code's keys beyond the ones its form has. It is empty when everything found a field.
 
@@ -131,7 +131,7 @@ Otherwise it opens in Text, byte for byte, with the claiming format as an offer 
 | `url` | [UrlFormat](../lib/formats/url_format.dart) | the raw URL |
 | `email` | [EmailFormat](../lib/formats/email_format.dart) | `mailto:` with URI-encoded `subject`/`body`, `@` and `+` left literal in the address |
 | `phone` | [PhoneFormat](../lib/formats/phone_format.dart) | `tel:<number>` |
-| `sms` | [SmsFormat](../lib/formats/sms_format.dart) | `SMSTO:<number>:<message>`, or `SMSTO:<number>` with no message |
+| `sms` | [SmsFormat](../lib/formats/sms_format.dart) | `SMSTO:<number>:<message>`, or `SMSTO:<number>` with no message; in expert mode, or `sms:<number>[,<number>…][?body=<message>]` (RFC 5724) |
 | `geo` | [GeoFormat](../lib/formats/geo_format.dart) | `geo:<lat>,<lon>` in decimal degrees (RFC 5870); expert mode adds `,<altitude>` and `;u=<uncertainty>`, in metres |
 | `text` | [TextFormat](../lib/formats/text_format.dart) | the text verbatim |
 
@@ -139,7 +139,7 @@ Escaping rules differ per spec and belong inside the format class:
 - Wi-Fi escapes `\ ; , " :` with a backslash (`WifiFormat._escape`).
 - Email uses `Uri.encodeComponent` on the address and each query param, then restores `@` and `+` in the address — RFC 6068 allows both there, and `%2B` breaks plus-addressing in some clients. The query params keep the full encoding, where `+` can be read as a space.
 - MeCard backslash-escapes `\` and `;` in every value, `,` only inside `N:` and `ADR:` where it separates components, and turns line breaks into spaces, since it has no escape for one. The spec escapes `:` and every `,` too, but the iPhone camera does not undo it, and turned `https://` into `https\://` in testing, and neither is ambiguous where it is left alone. MeCard carries no organisation or job title, which is the price of its smaller code. Its expert properties go beside the beginner ones without moving them, so a beginner's code is unchanged; `BDAY` drops the date field's dashes, as the spec writes it.
-- SMS escapes nothing: a reader splits at the first colon after the number, which cannot hold one.
+- SMS escapes nothing in `SMSTO:`: a reader splits at the first colon after the number, which cannot hold one. The `sms:` URI percent-encodes the body, leaves spaces out of the numbers and encodes `#`, which would start a fragment. Its numbers take no pause, because a comma separates its recipients, and the SMS number fields refuse one in either form, since a pause means nothing to a text message.
 - Location validates instead of escaping: decimal degrees with a point, within ±90 and ±180, which is all `geo:` accepts.
 - vCard emits `N:` and `FN:` lines; the rest are conditional. Every text value is escaped per RFC 2426 (`\ ; ,` and line breaks), which is what keeps a pasted line break from ending its own property. `TEL` is not text and is left as typed, so a pause's `,` does not arrive with a backslash in front of it. Each phone, email and address is its own line, and its kind becomes a `TYPE=` parameter (`TEL;TYPE=CELL:…`, `EMAIL;TYPE=WORK:…`, `ADR;TYPE=HOME:…`); *Other* leaves it off. The kinds are a beginner set from RFC 2426: phone Mobile, Home, Work, Fax, Other; email Home, Work, Other; address Home, Work. MeCard has no types, so it keeps a single phone, email and address. A vCard phone also takes `;` (a wait), through `validatePhoneWithWait`: a vCard property ends at a line break, so the `;` is no separator there, and the iPhone camera keeps it.
 
