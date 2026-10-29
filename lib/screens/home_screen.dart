@@ -1480,7 +1480,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _isDense(EncodedQr qr, double qrSize) {
     final mmPerPixel = _millimetresPerPixel ?? fallbackMillimetresPerPixel();
     final modulePixels =
-        (qrSize + 2 * _codeBoxPadding) / (qr.moduleCount + 2 * quietZoneModules);
+        (qrSize + 2 * _codeBoxPadding) /
+        (qr.moduleCount + 2 * quietZoneModules);
     return modulePixels * mmPerPixel < _comfortableModuleMillimetres;
   }
 

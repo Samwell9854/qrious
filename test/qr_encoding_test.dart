@@ -1,12 +1,73 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qrious/qr_decoding.dart';
 import 'package:qrious/qr_encoding.dart';
+import 'package:qrious/qr_segments.dart';
 
 /// The smallest version that holds [data] at [level], straight from the package.
 int versionAt(String data, ErrorCorrection level) =>
     QrCode.fromData(data: data, errorCorrectLevel: level.qrLevel!).typeNumber;
 
+/// What a reader makes of [qr], drawn black on white at 4 pixels per module.
+List<String> readBack(EncodedQr qr) {
+  const unit = 4, quiet = 4;
+  final side = (qr.moduleCount + 2 * quiet) * unit;
+  final image = img.Image(width: side, height: side, numChannels: 3);
+  img.fill(image, color: img.ColorRgb8(255, 255, 255));
+  for (var r = 0; r < qr.moduleCount; r++) {
+    for (var c = 0; c < qr.moduleCount; c++) {
+      if (!qr.image.isDark(r, c)) continue;
+      img.fillRect(
+        image,
+        x1: (c + quiet) * unit,
+        y1: (r + quiet) * unit,
+        x2: (c + quiet + 1) * unit - 1,
+        y2: (r + quiet + 1) * unit - 1,
+        color: img.ColorRgb8(0, 0, 0),
+      );
+    }
+  }
+  return decodeQrCodes(img.encodePng(image));
+}
+
 void main() {
+  group('segments', () {
+    test('digits and upper case take less room than bytes', () {
+      final digits = encodeQr('1' * 40, ErrorCorrection.low);
+      expect(digits.segments, [QrSegment(EncodingMode.numeric, '1' * 40)]);
+      expect(digits.version, 1);
+      expect(versionAt('1' * 40, ErrorCorrection.low), 3);
+    });
+
+    test('a long digit run in text gets a run of its own', () {
+      final qr = encodeQr(
+        'WIFI:T:WPA;S:home;P:${'7' * 30};;',
+        ErrorCorrection.medium,
+      );
+      expect(qr.segments.map((s) => s.mode), contains(EncodingMode.numeric));
+    });
+
+    // Lengths that land in each of the three widths of the count fields.
+    for (final (name, data) in [
+      ('numeric', '0123456789' * 3),
+      ('alphanumeric', 'HELLO WORLD \$%*+-./:' * 2),
+      ('mixed', 'Call +1 514 555 0000, code ABC-123, ${'9' * 25} ok'),
+      ('non-ASCII', 'café ☕ 😀 Ünïcödé 123456789012'),
+      ('mixed, version 10 to 26', 'Order 4711: ${'8' * 400} SHIPPED ' * 2),
+      ('mixed, version 27 to 40', 'Serial ${'5' * 1500} BATCH-A1 note ' * 2),
+    ]) {
+      test('$name text reads back as written', () {
+        final qr = encodeQr(data, ErrorCorrection.auto);
+        expect(readBack(qr), [data], reason: 'version ${qr.version}');
+        if (name.contains('version')) {
+          final low = int.parse(name.split(' ')[2]);
+          expect(qr.version, greaterThanOrEqualTo(low));
+        }
+      });
+    }
+  });
+
   group('a chosen level', () {
     test('is used as given', () {
       for (final level in ErrorCorrection.values.skip(1)) {

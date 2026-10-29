@@ -1,5 +1,7 @@
 import 'package:qr_flutter/qr_flutter.dart';
 
+import 'qr_segments.dart';
+
 /// The error-correction choices offered to the user.
 ///
 /// The QR spec defines exactly four levels, each restoring a fixed share of a
@@ -41,9 +43,10 @@ enum ErrorCorrection {
       };
 }
 
-/// A payload encoded into a QR symbol, with the error correction it ended up at.
+/// A payload encoded into a QR symbol, with the choices it ended up at.
 class EncodedQr {
-  EncodedQr._(this.code, this.errorCorrection) : image = QrImage(code);
+  EncodedQr._(this.code, this.errorCorrection, this.segments)
+    : image = QrImage(code);
 
   final QrCode code;
 
@@ -53,11 +56,17 @@ class EncodedQr {
   /// The level actually used; never [ErrorCorrection.auto].
   final ErrorCorrection errorCorrection;
 
+  /// The payload as written, run by run in each run's mode.
+  final List<QrSegment> segments;
+
   /// The symbol version, 1 to 40, which fixes its size.
   int get version => code.typeNumber;
 
   /// Modules along one side, excluding the quiet zone.
   int get moduleCount => code.moduleCount;
+
+  /// The mask pattern, 0 to 7, that the matrix was drawn with.
+  int get mask => image.maskPattern;
 }
 
 /// What [ErrorCorrection.auto] guarantees when the payload allows it.
@@ -73,6 +82,10 @@ const _strongestFirst = [
 /// Encodes [data] at [choice], throwing [InputTooLongException] when it does not
 /// fit even the largest symbol at that level.
 ///
+/// The payload is split into runs of numeric, alphanumeric and byte mode wherever
+/// that is shorter than writing it all as bytes (see `qr_segments.dart`), so digits
+/// and upper-case text take the room the spec says they need and no more.
+///
 /// [ErrorCorrection.auto] takes the smallest symbol that holds [data] at medium
 /// (or at low, when medium cannot hold it at all), then raises the level as far as
 /// it goes without needing a larger symbol. A symbol's size comes in fixed steps
@@ -83,36 +96,49 @@ EncodedQr encodeQr(String data, ErrorCorrection choice) {
     ErrorCorrection.auto => _resolveAuto(data),
     _ => choice,
   };
-  final code = QrCode.fromData(data: data, errorCorrectLevel: level.qrLevel!);
-  return EncodedQr._(code, level);
+  final fit = _fit(data, level);
+  if (fit == null) {
+    final segments = segmentsFor(data, 40);
+    throw InputTooLongException(
+      bitLength(segments, 40),
+      dataCapacityBits(40, level.qrLevel!),
+    );
+  }
+  final (version, segments) = fit;
+  final code = QrCode(version, level.qrLevel!);
+  addSegments(code, segments);
+  return EncodedQr._(code, level, segments);
 }
 
 ErrorCorrection _resolveAuto(String data) {
-  final floor = _versionFor(data, _autoFloor) != null
+  final floor = _fit(data, _autoFloor) != null
       ? _autoFloor
       : ErrorCorrection.low;
-  final base = _versionFor(data, floor);
+  final base = _fit(data, floor);
   if (base == null) {
     // Too long at every level; encoding at low throws the exception that says so.
     return ErrorCorrection.low;
   }
   return _strongestFirst.firstWhere((level) {
-    final version = _versionFor(data, level);
-    return version != null && version <= base;
+    final fit = _fit(data, level);
+    return fit != null && fit.$1 <= base.$1;
   });
 }
 
-/// The smallest version that holds [data] at [level], or null when none does.
-int? _versionFor(String data, ErrorCorrection level) {
-  final code = QrCode.fromData(data: data, errorCorrectLevel: level.qrLevel!);
-  // The package stops searching at version 40 without checking that it fits;
-  // building the matrix is what checks it.
-  if (code.typeNumber == 40) {
-    try {
-      QrImage(code);
-    } on InputTooLongException {
-      return null;
+/// The smallest version that holds [data] at [level], with the runs it is written
+/// in there, or null when none does.
+(int, List<QrSegment>)? _fit(String data, ErrorCorrection level) {
+  // The best split depends on the version only through the width of the count
+  // fields, which changes twice, so there are three splits to work out at most.
+  List<QrSegment>? segments;
+  for (var version = 1; version <= 40; version++) {
+    if (segments == null || version == 10 || version == 27) {
+      segments = segmentsFor(data, version);
+    }
+    if (bitLength(segments, version) <=
+        dataCapacityBits(version, level.qrLevel!)) {
+      return (version, segments);
     }
   }
-  return code.typeNumber;
+  return null;
 }
