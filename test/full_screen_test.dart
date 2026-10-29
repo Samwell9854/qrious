@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qrious/widgets/qr_symbol.dart';
 import 'package:qrious/full_screen.dart';
 import 'package:qrious/models/qr_format.dart';
 import 'package:qrious/pixel_size.dart';
@@ -11,7 +11,7 @@ import 'package:qrious/widgets/full_screen_qr.dart';
 
 /// Long enough for a near-largest symbol, whose modules come out under 0.5mm on
 /// a typical monitor at either layout's size.
-final densePayload = 'A long note. ' * 150;
+final densePayload = 'A long note. ' * 177;
 
 /// A 24" 1080p monitor.
 const desktopPixel = 0.28;
@@ -106,7 +106,7 @@ void main() {
     final code = tester.getSize(
       find.descendant(
         of: find.byType(FullScreenQr),
-        matching: find.byType(QrImageView),
+        matching: find.byType(QrSymbol),
       ),
     );
     // The close hint below takes a line of the height.
@@ -115,9 +115,7 @@ void main() {
   });
 
   /// The white box the preview draws the code on.
-  Size codeBox(WidgetTester tester) => tester.getSize(
-    find.ancestor(of: preview, matching: find.byType(Container)).first,
-  );
+  Size codeBox(WidgetTester tester) => tester.getSize(find.byType(QrSymbol));
 
   for (final size in [const Size(1920, 1080), const Size(1280, 500)]) {
     testWidgets(

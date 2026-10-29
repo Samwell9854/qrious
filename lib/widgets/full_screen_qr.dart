@@ -3,9 +3,9 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-
 import '../qr_encoding.dart';
+import '../qr_png.dart';
+import 'qr_symbol.dart';
 
 /// "Tap" on a phone, "Click" everywhere else. A touchscreen laptop is the one case
 /// this gets wrong, and it is wrong harmlessly: clicking and tapping both work.
@@ -23,9 +23,6 @@ class FullScreenQr extends StatelessWidget {
   const FullScreenQr({super.key, required this.qr});
 
   final EncodedQr qr;
-
-  /// The spec's quiet zone, in modules, on each side of the symbol.
-  static const _quietZone = 4;
 
   @override
   Widget build(BuildContext context) {
@@ -55,13 +52,11 @@ class FullScreenQr extends StatelessWidget {
                           constraints.maxWidth,
                           constraints.maxHeight,
                         );
-                        final module = side / (qr.moduleCount + 2 * _quietZone);
                         return Center(
-                          child: QrImageView.withQr(
-                            qr: qr.code,
+                          child: QrSymbol(
+                            qr: qr,
                             size: side,
-                            padding: EdgeInsets.all(module * _quietZone),
-                            backgroundColor: Colors.white,
+                            quietZone: quietZoneModules,
                           ),
                         );
                       },

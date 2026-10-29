@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qrious/widgets/qr_symbol.dart';
 import 'package:qrious/models/qr_format.dart';
 import 'package:qrious/screens/home_screen.dart';
 
@@ -49,10 +49,10 @@ void main() {
         await fillText(tester, longText);
 
         expect(tester.takeException(), isNull);
-        expect(find.byType(QrImageView), findsOneWidget);
+        expect(find.byType(QrSymbol), findsOneWidget);
         // The code keeps a readable minimum rather than being squeezed away.
         expect(
-          tester.getSize(find.byType(QrImageView)).width,
+          tester.getSize(find.byType(QrSymbol)).width,
           greaterThanOrEqualTo(200),
         );
       },

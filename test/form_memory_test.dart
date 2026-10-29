@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qrious/widgets/qr_symbol.dart';
 import 'package:qrious/models/qr_format.dart';
 import 'package:qrious/screens/home_screen.dart';
 
@@ -57,7 +57,7 @@ void main() {
 
     await pickFormat(tester, 'Phone Number');
     expect(find.text('Network Name (SSID)'), findsNothing);
-    expect(find.byType(QrImageView), findsNothing);
+    expect(find.byType(QrSymbol), findsNothing);
 
     await pickFormat(tester, 'Wi-Fi');
     expect(payload(tester), wifi);

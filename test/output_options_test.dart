@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qrious/widgets/qr_symbol.dart';
 
 import 'package:qrious/main.dart';
 import 'package:qrious/models/qr_format.dart';
@@ -85,7 +85,7 @@ void main() {
     await choose<ErrorCorrection>(tester, 'Low (7%)');
 
     // The caption and the preview are built from the same encoded symbol.
-    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.byType(QrSymbol), findsOneWidget);
     expect(
       find.textContaining('Low error correction, survives 7% damage'),
       findsOneWidget,
@@ -116,7 +116,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(QrImageView), findsNothing);
+    expect(find.byType(QrSymbol), findsNothing);
     expect(
       find.text('Too much data for a QR code\nat this error correction'),
       findsOneWidget,

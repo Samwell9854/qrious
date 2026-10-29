@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qrious/widgets/qr_symbol.dart';
 
 import 'package:qrious/formats/registry.dart';
 import 'package:qrious/main.dart';
@@ -16,7 +16,7 @@ void main() {
     await tester.pumpWidget(const QriousApp());
 
     expect(find.text('Network Name (SSID)'), findsOneWidget);
-    expect(find.byType(QrImageView), findsNothing);
+    expect(find.byType(QrSymbol), findsNothing);
     expect(
       find.text('Fill in the required fields\nto generate a QR code'),
       findsOneWidget,
@@ -55,7 +55,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.byType(QrSymbol), findsOneWidget);
     expect(find.text('WIFI:T:WPA;S:MyNetwork;P:;H:false;;'), findsOneWidget);
   });
 
@@ -181,7 +181,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Network Name (SSID)'), findsNothing);
-    expect(find.byType(QrImageView), findsNothing);
+    expect(find.byType(QrSymbol), findsNothing);
   });
 
   testWidgets('stacks into one scrolling column on a phone-sized screen', (
@@ -214,8 +214,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(QrImageView), findsOneWidget);
-    final qr = tester.widget<QrImageView>(find.byType(QrImageView));
-    expect(qr.size, lessThanOrEqualTo(390 - 32 - 32));
+    expect(find.byType(QrSymbol), findsOneWidget);
+    final qr = tester.widget<QrSymbol>(find.byType(QrSymbol));
+    // The symbol is the whole white box, quiet zone included.
+    expect(qr.size, lessThanOrEqualTo(390 - 32));
   });
 }

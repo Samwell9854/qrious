@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qrious/widgets/qr_symbol.dart';
 
 import 'package:qrious/main.dart';
 import 'package:qrious/models/qr_format.dart';
@@ -28,7 +28,7 @@ void main() {
     await type(tester, 'URL', 'example.com');
 
     expect(find.text('Enter a full URL, including https://'), findsOneWidget);
-    expect(find.byType(QrImageView), findsNothing);
+    expect(find.byType(QrSymbol), findsNothing);
   });
 
   testWidgets('fixing the value clears the error and generates the code', (
@@ -41,7 +41,7 @@ void main() {
     await type(tester, 'URL', 'https://example.com');
 
     expect(find.text('Enter a full URL, including https://'), findsNothing);
-    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.byType(QrSymbol), findsOneWidget);
     // The URL is its own payload, so match the panel rather than the field.
     expect(
       find.widgetWithText(SelectableText, 'https://example.com'),
@@ -57,7 +57,7 @@ void main() {
 
     // Nothing typed: required-ness holds the code back, no error is shown.
     expect(find.textContaining('Enter an address like'), findsNothing);
-    expect(find.byType(QrImageView), findsNothing);
+    expect(find.byType(QrSymbol), findsNothing);
 
     // Typing and then clearing it puts the form back to unflagged.
     await type(tester, 'To', 'nope');
@@ -73,13 +73,13 @@ void main() {
     await selectFormat(tester, 'Contact (vCard)');
 
     await type(tester, 'First Name', 'Ada');
-    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.byType(QrSymbol), findsOneWidget);
 
     // Email is optional here, but a wrong one would still be encoded.
     await tester.tap(find.text('Add email'));
     await tester.pump();
     await type(tester, 'Email · Home', 'not-an-address');
-    expect(find.byType(QrImageView), findsNothing);
+    expect(find.byType(QrSymbol), findsNothing);
   });
 
   testWidgets('switching format drops the error with the values', (

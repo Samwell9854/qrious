@@ -4,7 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qr_flutter/qr_flutter.dart' show InputTooLongException;
 import '../formats/import.dart';
 import '../formats/registry.dart';
 import '../file_drop.dart';
@@ -26,6 +26,7 @@ import '../widgets/app_title.dart';
 import '../widgets/camera_scanner.dart';
 import '../widgets/fill_then_scroll.dart';
 import '../widgets/full_screen_qr.dart';
+import '../widgets/qr_symbol.dart';
 import '../widgets/settings_view.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -1476,20 +1477,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       max(min(space.width, space.height) - 2 * _codeBoxPadding, 0);
 
   /// Whether a [qrSize] code leaves its modules too small to scan comfortably.
-  /// QrImageView keeps 10px of padding on each side inside its size.
   bool _isDense(EncodedQr qr, double qrSize) {
     final mmPerPixel = _millimetresPerPixel ?? fallbackMillimetresPerPixel();
-    final modulePixels = (qrSize - 20) / qr.moduleCount;
+    final modulePixels =
+        (qrSize + 2 * _codeBoxPadding) / (qr.moduleCount + 2 * quietZoneModules);
     return modulePixels * mmPerPixel < _comfortableModuleMillimetres;
   }
 
+  /// The code on its white box, whose margin is the quiet zone, in modules as in a
+  /// saved file: the box is [qrSize] plus [_codeBoxPadding] on each side.
   Widget _buildCode(EncodedQr qr, double qrSize) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(_codeBoxPadding),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
       // The whole code is the control, rather than a button beside it: it is the
       // obvious thing to reach for, and the hint below says so when the code is
       // small enough to need it.
@@ -1501,7 +1500,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             cursor: SystemMouseCursors.zoomIn,
             child: GestureDetector(
               onTap: () => _showFullScreen(qr),
-              child: QrImageView.withQr(qr: qr.code, size: qrSize),
+              child: QrSymbol(
+                qr: qr,
+                size: qrSize + 2 * _codeBoxPadding,
+                quietZone: quietZoneModules,
+              ),
             ),
           ),
         ),
