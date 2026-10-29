@@ -33,14 +33,34 @@ class GeoFormat extends QrFormat {
       hint: '2.2945',
       validate: validateLongitude,
     ),
+    QrField(
+      id: 'altitude',
+      label: 'Altitude (metres)',
+      hint: '330',
+      validate: validateAltitude,
+      expert: true,
+    ),
+    QrField(
+      id: 'uncertainty',
+      label: 'Uncertainty (metres)',
+      hint: '25',
+      validate: validateUncertainty,
+      expert: true,
+    ),
   ];
 
-  /// `geo:<lat>,<lon>` per RFC 5870, in decimal degrees as typed.
+  /// `geo:<lat>,<lon>[,<alt>][;u=<metres>]` per RFC 5870, in decimal degrees and
+  /// metres as typed. Altitude is height above the WGS-84 ellipsoid; the uncertainty
+  /// is a radius around the point, which a reader may show as a circle.
   @override
   String buildQrString(Map<String, String> values) {
     final latitude = (values['latitude'] ?? '').trim();
     final longitude = (values['longitude'] ?? '').trim();
-    return 'geo:$latitude,$longitude';
+    final altitude = (values['altitude'] ?? '').trim();
+    final uncertainty = (values['uncertainty'] ?? '').trim();
+    return 'geo:$latitude,$longitude'
+        '${altitude.isEmpty ? '' : ',$altitude'}'
+        '${uncertainty.isEmpty ? '' : ';u=$uncertainty'}';
   }
 
   /// Decimal degrees with a point, the only form RFC 5870 allows: no comma
@@ -59,9 +79,20 @@ class GeoFormat extends QrFormat {
   static String? validateLongitude(String value) =>
       _validateDegrees(value, 180, 'Longitude runs from -180 to 180');
 
-  /// `geo:<lat>,<lon>[,<altitude>][;<param>...]`. The form holds the two
-  /// coordinates; altitude and parameters such as `u=` (uncertainty) or `crs=` are
-  /// reported as unsupported.
+  /// A number as RFC 5870 writes one: digits with an optional point, no `+`.
+  static final RegExp _number = RegExp(r'^-?\d+(\.\d+)?$');
+
+  static String? validateAltitude(String value) =>
+      _number.hasMatch(value.trim()) ? null : 'Use metres, like 330 or -12.5';
+
+  static String? validateUncertainty(String value) =>
+      _number.hasMatch(value.trim()) && !value.trim().startsWith('-')
+      ? null
+      : 'Use metres, like 25';
+
+  /// `geo:<lat>,<lon>[,<altitude>][;<param>...]`. The form holds the coordinates,
+  /// the altitude and one `u=` (uncertainty); other parameters, such as `crs=`, and
+  /// a fourth coordinate are reported as unsupported.
   @override
   QrParsed? parse(String payload) {
     if (!hasPrefixIgnoreCase(payload, 'geo:')) return null;
@@ -70,17 +101,26 @@ class GeoFormat extends QrFormat {
     final end = rest.indexOf(RegExp(r'[;?]'));
     final coordinates = (end < 0 ? rest : rest.substring(0, end)).split(',');
     final unsupported = <String>[];
-    if (coordinates.length > 2) unsupported.add('altitude');
+    if (coordinates.length > 3) unsupported.add('coordinates beyond altitude');
+    var uncertainty = '';
     if (end >= 0) {
       for (final param in rest.substring(end + 1).split(RegExp(r'[;&]'))) {
         if (param.isEmpty) continue;
         final equals = param.indexOf('=');
-        addOnce(unsupported, equals < 0 ? param : param.substring(0, equals));
+        final name = equals < 0 ? param : param.substring(0, equals);
+        if (name == 'u' && equals > 0 && uncertainty.isEmpty) {
+          uncertainty = param.substring(equals + 1);
+        } else {
+          addOnce(unsupported, name);
+        }
       }
     }
+    String at(int i) => i < coordinates.length ? coordinates[i] : '';
     return QrParsed({
-      'latitude': coordinates[0],
-      'longitude': coordinates.length > 1 ? coordinates[1] : '',
+      'latitude': at(0),
+      'longitude': at(1),
+      'altitude': at(2),
+      'uncertainty': uncertainty,
     }, unsupported);
   }
 }
