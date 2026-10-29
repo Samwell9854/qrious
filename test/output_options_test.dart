@@ -60,7 +60,7 @@ void main() {
     await pumpWithCode(tester, const Size(1280, 800));
 
     final qr = encodeQr(payload, ErrorCorrection.auto);
-    final side = ImageSize.medium.pixelsFor(qr);
+    final side = ImageSize.medium.layout.sideFor(qr);
     expect(
       find.text(
         'Auto: ${qr.errorCorrection.label} error correction, survives '
@@ -74,7 +74,7 @@ void main() {
     await pumpWithCode(tester, const Size(1280, 800));
     await choose<ImageSize>(tester, 'Large');
 
-    final side = ImageSize.large.pixelsFor(
+    final side = ImageSize.large.layout.sideFor(
       encodeQr(payload, ErrorCorrection.auto),
     );
     expect(find.textContaining('$side × $side px'), findsOneWidget);

@@ -128,6 +128,7 @@ void main() {
         'errorCorrection': 'high',
         'imageSize': 'large',
         'saveFileType': 'svg',
+        'quietZone': 4,
       });
     });
 
@@ -161,6 +162,27 @@ void main() {
         await loadSettings(file),
         const Settings(imageSize: ImageSize.large),
       );
+    });
+
+    test(
+      'expert size and quiet zone round-trip, bad values fall back',
+      () async {
+        final file = File('${temp.path}/settings.json');
+        const expert = Settings(pixelsPerModule: 3, quietZone: 0);
+        await saveSettings(expert, file);
+        expect(await loadSettings(file), expert);
+
+        file.writeAsStringSync('{"pixelsPerModule": 0, "quietZone": -1}');
+        expect(await loadSettings(file), const Settings());
+        file.writeAsStringSync('{"pixelsPerModule": "big", "quietZone": 2.5}');
+        expect(await loadSettings(file), const Settings());
+      },
+    );
+
+    test('expert size starts from the beginner size until one is chosen', () {
+      const settings = Settings(imageSize: ImageSize.large);
+      expect(settings.expertPixelsPerModule, 16);
+      expect(settings.copyWith(pixelsPerModule: 5).expertPixelsPerModule, 5);
     });
 
     test('an unknown value costs that setting only', () async {

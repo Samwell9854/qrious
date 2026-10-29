@@ -37,8 +37,15 @@ const _maxDepth = 4;
 List<String> decodeQrCodes(Uint8List imageBytes) {
   final image = img.decodeImage(imageBytes);
   if (image == null) throw const UnreadableImageException();
-  // Phone photos carry their rotation in EXIF rather than in the pixels.
-  return _decodeImage(img.bakeOrientation(image));
+  // Phone photos carry their rotation in EXIF rather than in the pixels. Every image is
+  // brought to 8 bits a channel first: one with fewer, such as the 1-bit PNGs Qrious
+  // saves, keeps its packed format through a conversion of channels alone, and is too
+  // short for the luminance buffer read from it, and averaging it when shrinking
+  // would have no grey to average into.
+  final eight = image.format == img.Format.uint8
+      ? image
+      : image.convert(format: img.Format.uint8);
+  return _decodeImage(img.bakeOrientation(eight));
 }
 
 /// One grayscale frame, one byte of luma per pixel, rows packed without padding: what

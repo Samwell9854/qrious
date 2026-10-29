@@ -26,6 +26,7 @@ import '../widgets/app_title.dart';
 import '../widgets/camera_scanner.dart';
 import '../widgets/fill_then_scroll.dart';
 import '../widgets/full_screen_qr.dart';
+import '../widgets/number_field.dart';
 import '../widgets/qr_symbol.dart';
 import '../widgets/settings_view.dart';
 
@@ -110,6 +111,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // Not reset on a format switch: they describe the output, not the content.
   late ErrorCorrection _errorCorrection = _settings.errorCorrection;
   late ImageSize _imageSize = _settings.imageSize;
+
+  // Expert mode's own choices. Kept while in beginner mode, which ignores them, so
+  // they are as they were when expert mode comes back.
+  late int _pixelsPerModule = _settings.expertPixelsPerModule;
+  late int _quietZone = _settings.quietZone;
+
+  bool get _expert => _settings.expertMode;
+
+  /// The image layout as chosen, before it is fitted to a code.
+  QrLayout get _chosenLayout => _expert
+      ? QrLayout(pixelsPerModule: _pixelsPerModule, quietZone: _quietZone)
+      : _imageSize.layout;
+
+  /// The layout [qr] is drawn and saved at: the choice, or the nearest to it that
+  /// stays within the largest image when the code has grown past it.
+  QrLayout _layoutFor(EncodedQr qr) => _chosenLayout.fittedTo(qr);
 
   @override
   void initState() {
@@ -697,6 +714,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       if (settings.imageSize != before.imageSize) {
         _imageSize = settings.imageSize;
+      }
+      if (settings.expertPixelsPerModule != before.expertPixelsPerModule) {
+        _pixelsPerModule = settings.expertPixelsPerModule;
+      }
+      if (settings.quietZone != before.quietZone) {
+        _quietZone = settings.quietZone;
       }
     });
     final messenger = ScaffoldMessenger.of(context);
@@ -1349,7 +1372,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (picked == null) return; // Cancelled, which is not a failure.
 
       final path = type.withExtension(picked);
-      await File(path).writeAsBytes(await type.render(qr, _imageSize));
+      await File(path).writeAsBytes(await type.render(qr, _layoutFor(qr)));
       messenger.showSnackBar(SnackBar(content: Text('Saved $path')));
     } catch (error) {
       messenger.showSnackBar(SnackBar(content: Text('Could not save: $error')));
@@ -1364,7 +1387,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final copy = widget.copyImage ?? copyPngToClipboard;
 
     try {
-      await copy(await renderQrPng(qr, size: _imageSize));
+      await copy(await renderQrPng(qr, layout: _layoutFor(qr)));
       messenger.showSnackBar(
         const SnackBar(content: Text('QR code copied as an image')),
       );
@@ -1382,7 +1405,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await setter(true);
     await navigator.push(
       PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => FullScreenQr(qr: qr),
+        pageBuilder: (_, _, _) =>
+            FullScreenQr(qr: qr, quietZone: _layoutFor(qr).quietZone),
         transitionsBuilder: (_, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
       ),
@@ -1399,75 +1423,142 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// 40cm is about 0.45mm.
   static const double _comfortableModuleMillimetres = 0.5;
 
-  /// What the preview is showing, in the beginner's terms.
+  /// What the preview is showing: in the beginner's terms, or with the spec's details
+  /// in expert mode, and what had to give when the code outgrew a choice.
   String _describe(EncodedQr qr) {
     final level = qr.errorCorrection;
     final chosen = _errorCorrection == ErrorCorrection.auto ? 'Auto: ' : '';
-    final side = _imageSize.pixelsFor(qr);
-    return '$chosen${level.label} error correction, survives '
-        '${level.recoveryPercent}% damage · $side × $side px';
+    final layout = _layoutFor(qr);
+    final side = layout.sideFor(qr);
+    if (!_expert) {
+      return '$chosen${level.label} error correction, survives '
+          '${level.recoveryPercent}% damage · $side × $side px';
+    }
+    final modes = {
+      for (final segment in qr.segments) segment.mode.label.toLowerCase(),
+    }.join(' + ');
+    final n = qr.moduleCount;
+    return [
+      '$chosen${level.choiceLabel(expert: true)}',
+      'version ${qr.version} ($n×$n)',
+      'mask ${qr.mask}',
+      if (modes.isNotEmpty) modes,
+      '$side × $side px',
+      ..._fallbacks(layout),
+    ].join(' · ');
   }
 
-  /// Error correction and image size, side by side. Each takes half the row, as
-  /// the buttons below do, so both still fit the 390px phone layout.
-  Widget _buildOutputOptions() {
-    return Row(
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<ErrorCorrection>(
-            // Keyed by the value so a default changed in settings shows here too:
-            // initialValue is read only when the field is created.
-            key: ValueKey(_errorCorrection),
-            initialValue: _errorCorrection,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Error correction',
-              border: OutlineInputBorder(),
+  /// The choices this code could not take as they are, each with what it got instead.
+  List<String> _fallbacks(QrLayout layout) => [
+    if (layout.quietZone != _quietZone)
+      'quiet zone $_quietZone is too wide for this code; using ${layout.quietZone}',
+    if (layout.pixelsPerModule != _pixelsPerModule)
+      '$_pixelsPerModule px per module is too large for this code; '
+          'using ${layout.pixelsPerModule}',
+  ];
+
+  /// Error correction and image size, side by side, then in expert mode the rows of
+  /// spec-level choices. Each takes half its row, as the buttons below do, so all of
+  /// them still fit the 390px phone layout.
+  Widget _buildOutputOptions(EncodedQr? qr) {
+    final errorCorrection = DropdownButtonFormField<ErrorCorrection>(
+      // Keyed by the value so a default changed in settings shows here too:
+      // initialValue is read only when the field is created.
+      key: ValueKey(_errorCorrection),
+      initialValue: _errorCorrection,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Error correction',
+        border: OutlineInputBorder(),
+      ),
+      items: ErrorCorrection.values
+          .map(
+            (level) => DropdownMenuItem(
+              value: level,
+              child: Text(
+                level.choiceLabel(expert: _expert),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            items: ErrorCorrection.values
-                .map(
-                  (level) => DropdownMenuItem(
-                    value: level,
-                    child: Text(
-                      level.choiceLabel(expert: _settings.expertMode),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                )
-                .toList(),
-            onChanged: (level) {
-              if (level == null) return;
-              setState(() => _errorCorrection = level);
-            },
+          )
+          .toList(),
+      onChanged: (level) {
+        if (level == null) return;
+        setState(() => _errorCorrection = level);
+      },
+    );
+    if (!_expert) {
+      return _optionRow(
+        errorCorrection,
+        DropdownButtonFormField<ImageSize>(
+          key: ValueKey(_imageSize),
+          initialValue: _imageSize,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Image size',
+            border: OutlineInputBorder(),
+          ),
+          items: ImageSize.values
+              .map(
+                (size) => DropdownMenuItem(
+                  value: size,
+                  child: Text(size.label, overflow: TextOverflow.ellipsis),
+                ),
+              )
+              .toList(),
+          onChanged: (size) {
+            if (size == null) return;
+            setState(() => _imageSize = size);
+          },
+        ),
+      );
+    }
+
+    // The ranges follow the code on show, so that only what it can take is typed.
+    // Without one, the smallest symbol's, which every code is at least.
+    final layout = qr == null ? _chosenLayout : _layoutFor(qr);
+    final maxPixels = qr == null
+        ? maxImageSide ~/ (21 + 2 * layout.quietZone)
+        : layout.maxPixelsPerModuleFor(qr);
+    final maxZone = qr == null
+        ? (maxImageSide ~/ layout.pixelsPerModule - 21) ~/ 2
+        : layout.maxQuietZoneFor(qr);
+    return Column(
+      children: [
+        _optionRow(
+          errorCorrection,
+          NumberField(
+            label: 'Pixels per module',
+            value: _pixelsPerModule,
+            min: 1,
+            max: maxPixels,
+            onChanged: (n) => setState(() => _pixelsPerModule = n),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: DropdownButtonFormField<ImageSize>(
-            key: ValueKey(_imageSize),
-            initialValue: _imageSize,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Image size',
-              border: OutlineInputBorder(),
-            ),
-            items: ImageSize.values
-                .map(
-                  (size) => DropdownMenuItem(
-                    value: size,
-                    child: Text(size.label, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: (size) {
-              if (size == null) return;
-              setState(() => _imageSize = size);
-            },
+        const SizedBox(height: 12),
+        _optionRow(
+          NumberField(
+            label: 'Quiet zone (modules)',
+            value: _quietZone,
+            min: 0,
+            max: maxZone,
+            helper: 'spec 4',
+            onChanged: (n) => setState(() => _quietZone = n),
           ),
+          const SizedBox.shrink(),
         ),
       ],
     );
   }
+
+  Widget _optionRow(Widget left, Widget right) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(child: left),
+      const SizedBox(width: 12),
+      Expanded(child: right),
+    ],
+  );
 
   /// The white container around the code pads it by 16px on each side.
   static const double _codeBoxPadding = 16;
@@ -1479,17 +1570,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// Whether a [qrSize] code leaves its modules too small to scan comfortably.
   bool _isDense(EncodedQr qr, double qrSize) {
     final mmPerPixel = _millimetresPerPixel ?? fallbackMillimetresPerPixel();
+    final zone = _layoutFor(qr).quietZone;
     final modulePixels =
-        (qrSize + 2 * _codeBoxPadding) /
-        (qr.moduleCount + 2 * quietZoneModules);
+        (qrSize + 2 * _codeBoxPadding) / (qr.moduleCount + 2 * zone);
     return modulePixels * mmPerPixel < _comfortableModuleMillimetres;
   }
 
   /// The code on its white box, whose margin is the quiet zone, in modules as in a
   /// saved file: the box is [qrSize] plus [_codeBoxPadding] on each side.
   Widget _buildCode(EncodedQr qr, double qrSize) {
+    final zone = _layoutFor(qr).quietZone;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      // Rounded only where the corners are margin: with no quiet zone they are the
+      // finder patterns, which a rounded corner would cut into.
+      borderRadius: BorderRadius.circular(zone > 0 ? 8 : 0),
       // The whole code is the control, rather than a button beside it: it is the
       // obvious thing to reach for, and the hint below says so when the code is
       // small enough to need it.
@@ -1504,7 +1598,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               child: QrSymbol(
                 qr: qr,
                 size: qrSize + 2 * _codeBoxPadding,
-                quietZone: quietZoneModules,
+                quietZone: zone,
               ),
             ),
           ),
@@ -1610,7 +1704,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 16),
-        _buildOutputOptions(),
+        _buildOutputOptions(qr),
         const SizedBox(height: 16),
         // Expanded rather than intrinsic widths: two buttons side by side must
         // still fit the 390px phone layout.

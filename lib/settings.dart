@@ -13,6 +13,8 @@ class Settings {
     this.errorCorrection = ErrorCorrection.auto,
     this.imageSize = ImageSize.medium,
     this.saveFileType,
+    this.pixelsPerModule,
+    this.quietZone = quietZoneModules,
   });
 
   /// Whether the app offers everything the spec allows rather than the beginner set.
@@ -25,16 +27,31 @@ class Settings {
   /// The type Save writes without asking; null asks each time with a menu.
   final ExportFileType? saveFileType;
 
+  /// Expert mode's image size, in any whole number of pixels per module; null until
+  /// one is chosen, which starts it from [imageSize]. Kept apart from [imageSize] so
+  /// that each mode keeps its own choice.
+  final int? pixelsPerModule;
+
+  /// Expert mode's quiet zone, in modules. Beginner mode always has the spec's 4.
+  final int quietZone;
+
+  /// Expert mode's pixels per module, as chosen or else from [imageSize].
+  int get expertPixelsPerModule => pixelsPerModule ?? imageSize.pixelsPerModule;
+
   Settings copyWith({
     bool? expertMode,
     ErrorCorrection? errorCorrection,
     ImageSize? imageSize,
     ExportFileType? Function()? saveFileType,
+    int? pixelsPerModule,
+    int? quietZone,
   }) => Settings(
     expertMode: expertMode ?? this.expertMode,
     errorCorrection: errorCorrection ?? this.errorCorrection,
     imageSize: imageSize ?? this.imageSize,
     saveFileType: saveFileType != null ? saveFileType() : this.saveFileType,
+    pixelsPerModule: pixelsPerModule ?? this.pixelsPerModule,
+    quietZone: quietZone ?? this.quietZone,
   );
 
   /// Enum names rather than labels, so renaming a label does not lose anyone's choice.
@@ -43,6 +60,8 @@ class Settings {
     'errorCorrection': errorCorrection.name,
     'imageSize': imageSize.name,
     'saveFileType': saveFileType?.name ?? 'ask',
+    'pixelsPerModule': ?pixelsPerModule,
+    'quietZone': quietZone,
   };
 
   /// Each value falls back to its default on its own when it is missing or unknown, so
@@ -63,6 +82,14 @@ class Settings {
       imageSize:
           named(ImageSize.values, map['imageSize']) ?? defaults.imageSize,
       saveFileType: named(ExportFileType.values, map['saveFileType']),
+      pixelsPerModule: switch (map['pixelsPerModule']) {
+        final int n when n >= 1 => n,
+        _ => null,
+      },
+      quietZone: switch (map['quietZone']) {
+        final int n when n >= 0 => n,
+        _ => defaults.quietZone,
+      },
     );
   }
 
@@ -72,11 +99,19 @@ class Settings {
       other.expertMode == expertMode &&
       other.errorCorrection == errorCorrection &&
       other.imageSize == imageSize &&
-      other.saveFileType == saveFileType;
+      other.saveFileType == saveFileType &&
+      other.pixelsPerModule == pixelsPerModule &&
+      other.quietZone == quietZone;
 
   @override
-  int get hashCode =>
-      Object.hash(expertMode, errorCorrection, imageSize, saveFileType);
+  int get hashCode => Object.hash(
+    expertMode,
+    errorCorrection,
+    imageSize,
+    saveFileType,
+    pixelsPerModule,
+    quietZone,
+  );
 }
 
 /// Writes [settings] where the next launch reads them. Throws when that fails.

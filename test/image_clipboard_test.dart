@@ -100,7 +100,7 @@ void main() {
         await tester.runAsync(() async {
           final bytes = await renderQrPng(
             encodeQr('https://example.com', ErrorCorrection.auto),
-            size: ImageSize.small,
+            layout: ImageSize.small.layout,
           );
           await copyPngToClipboard(bytes);
 
@@ -274,7 +274,7 @@ void main() {
         await tester.runAsync(() async {
           final bytes = await renderQrPng(
             encodeQr('https://example.com', ErrorCorrection.auto),
-            size: ImageSize.small,
+            layout: ImageSize.small.layout,
           );
           await copyPngToClipboard(bytes);
 
@@ -357,7 +357,7 @@ void main() {
           addTearDown(() => dir.deleteSync(recursive: true));
           final bytes = await renderQrPng(
             encodeQr('https://example.com', ErrorCorrection.auto),
-            size: ImageSize.small,
+            layout: ImageSize.small.layout,
           );
           final file = File('${dir.path}/my code.png')..writeAsBytesSync(bytes);
 

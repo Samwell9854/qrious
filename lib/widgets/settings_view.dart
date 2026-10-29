@@ -4,6 +4,7 @@ import '../qr_encoding.dart';
 import '../qr_export.dart';
 import '../qr_png.dart';
 import '../settings.dart';
+import 'number_field.dart';
 
 /// Below this width settings take the whole screen instead of floating over it. The
 /// same breakpoint as the home screen's layouts.
@@ -130,28 +131,49 @@ class _SettingsViewState extends State<SettingsView> {
           },
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<ImageSize>(
-          key: ValueKey(_settings.imageSize),
-          initialValue: _settings.imageSize,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Image size',
-            border: OutlineInputBorder(),
+        if (_settings.expertMode) ...[
+          // The ranges are the smallest symbol's, the one that leaves the most room:
+          // a larger code that cannot take a default gets the nearest it can.
+          NumberField(
+            label: 'Pixels per module',
+            value: _settings.expertPixelsPerModule,
+            min: 1,
+            max: maxImageSide ~/ (21 + 2 * _settings.quietZone),
+            helper: 'default ${_defaults.expertPixelsPerModule}',
+            onChanged: (n) => _change(_settings.copyWith(pixelsPerModule: n)),
           ),
-          items: [
-            for (final size in ImageSize.values)
-              DropdownMenuItem(
-                value: size,
-                child: Text(
-                  _marked(size.label, size == _defaults.imageSize),
-                  overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 16),
+          NumberField(
+            label: 'Quiet zone (modules)',
+            value: _settings.quietZone,
+            min: 0,
+            max: (maxImageSide ~/ _settings.expertPixelsPerModule - 21) ~/ 2,
+            helper: 'default ${_defaults.quietZone}, as the spec says',
+            onChanged: (n) => _change(_settings.copyWith(quietZone: n)),
+          ),
+        ] else
+          DropdownButtonFormField<ImageSize>(
+            key: ValueKey(_settings.imageSize),
+            initialValue: _settings.imageSize,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Image size',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              for (final size in ImageSize.values)
+                DropdownMenuItem(
+                  value: size,
+                  child: Text(
+                    _marked(size.label, size == _defaults.imageSize),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-          ],
-          onChanged: (size) {
-            if (size != null) _change(_settings.copyWith(imageSize: size));
-          },
-        ),
+            ],
+            onChanged: (size) {
+              if (size != null) _change(_settings.copyWith(imageSize: size));
+            },
+          ),
         const SizedBox(height: 16),
         // Null is "Ask each time", a value of its own here, so the dropdown's own
         // null (nothing picked) never arises: onChanged always gets a real choice.

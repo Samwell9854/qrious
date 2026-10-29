@@ -26,10 +26,10 @@ void main() {
     testWidgets('renders each type as that type', (tester) async {
       final qr = encodeQr('https://example.com', ErrorCorrection.auto);
       await tester.runAsync(() async {
-        final png = await ExportFileType.png.render(qr, ImageSize.small);
+        final png = await ExportFileType.png.render(qr, ImageSize.small.layout);
         expect(png.take(4), [0x89, 0x50, 0x4E, 0x47]);
 
-        final svg = await ExportFileType.svg.render(qr, ImageSize.small);
+        final svg = await ExportFileType.svg.render(qr, ImageSize.small.layout);
         expect(utf8.decode(svg), startsWith('<?xml'));
       });
     });

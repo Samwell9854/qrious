@@ -20,9 +20,16 @@ String pointerVerb() => switch (defaultTargetPlatform) {
 /// modules on a light ground. Tapping anywhere or pressing Esc closes it, so there
 /// is no button to aim for.
 class FullScreenQr extends StatelessWidget {
-  const FullScreenQr({super.key, required this.qr});
+  const FullScreenQr({
+    super.key,
+    required this.qr,
+    this.quietZone = quietZoneModules,
+  });
 
   final EncodedQr qr;
+
+  /// The white margin around the code, in modules.
+  final int quietZone;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +63,7 @@ class FullScreenQr extends StatelessWidget {
                           child: QrSymbol(
                             qr: qr,
                             size: side,
-                            quietZone: quietZoneModules,
+                            quietZone: quietZone,
                           ),
                         );
                       },

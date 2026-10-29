@@ -16,11 +16,11 @@ enum ExportFileType {
   final String label;
   final String extension;
 
-  /// The file's bytes for [qr] at [size].
-  Future<Uint8List> render(EncodedQr qr, ImageSize size) async =>
+  /// The file's bytes for [qr] laid out as [layout].
+  Future<Uint8List> render(EncodedQr qr, QrLayout layout) async =>
       switch (this) {
-        png => await renderQrPng(qr, size: size),
-        svg => utf8.encode(renderQrSvg(qr, size: size)),
+        png => await renderQrPng(qr, layout: layout),
+        svg => utf8.encode(renderQrSvg(qr, layout: layout)),
       };
 
   /// [path] with this type's extension added unless it already ends in it.

@@ -30,7 +30,8 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/widgets/full_screen_qr.dart](lib/widgets/full_screen_qr.dart), [lib/full_screen.dart](lib/full_screen.dart), [lib/pixel_size.dart](lib/pixel_size.dart) | The code alone at the size of the screen, for scanning; taking the whole screen for it, and reading how large a pixel is to judge when to offer it (a channel the Linux runner answers) |
 | [lib/file_drop.dart](lib/file_drop.dart) | `FileDropRegion`: files dragged onto the window, reported by the Linux runner on the `qrious/drop` channel as file paths |
 | [lib/qr_encoding.dart](lib/qr_encoding.dart), [lib/qr_segments.dart](lib/qr_segments.dart) | Encodes a payload at the chosen error correction, including how Auto picks a level; splitting it into numeric, alphanumeric and byte runs, and the capacity each version holds |
-| [lib/qr_png.dart](lib/qr_png.dart), [lib/qr_svg.dart](lib/qr_svg.dart) | Render the encoded code to a PNG or an SVG for saving — black on white, with a quiet zone, sized in pixels per module |
+| [lib/qr_png.dart](lib/qr_png.dart), [lib/qr_svg.dart](lib/qr_svg.dart) | Render the encoded code to a PNG or an SVG for saving — black on white, with a quiet zone, sized in pixels per module; the PNG is 1-bit, written in Dart, at most `maxImageSide` |
+| [lib/widgets/number_field.dart](lib/widgets/number_field.dart) | A whole number typed within a range, refusing a keystroke that would leave it |
 | [lib/qr_export.dart](lib/qr_export.dart) | The file types Save offers, their rendering and extensions, and the suggested filename |
 | [lib/save_location.dart](lib/save_location.dart) | The save dialog, behind a typedef the screen can stub in tests |
 | [lib/image_clipboard.dart](lib/image_clipboard.dart) | Copies a PNG to the clipboard by piping it to `wl-copy` or `xclip`, and reads an image back with `wl-paste` or `xclip` |

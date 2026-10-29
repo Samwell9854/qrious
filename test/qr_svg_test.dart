@@ -9,8 +9,8 @@ void main() {
 
   test('opens at the PNG size, drawn in module units', () {
     for (final size in ImageSize.values) {
-      final svg = renderQrSvg(qr, size: size);
-      final pixels = size.pixelsFor(qr);
+      final svg = renderQrSvg(qr, layout: size.layout);
+      final pixels = size.layout.sideFor(qr);
       expect(svg, contains('width="$pixels" height="$pixels"'));
       expect(svg, contains('viewBox="0 0 33 33"'));
     }
@@ -42,5 +42,12 @@ void main() {
           if (qr.image.isDark(row, col)) (row, col),
     };
     expect(drawn, dark);
+  });
+
+  test('takes the quiet zone it is given, none included', () {
+    final svg = renderQrSvg(qr, layout: const QrLayout(quietZone: 0));
+    expect(svg, contains('viewBox="0 0 25 25"'));
+    expect(svg, contains('width="200" height="200"'));
+    expect(svg, contains('M0 0h7'));
   });
 }
