@@ -138,6 +138,7 @@ void main() {
       'name@example.com',
       '+1 555 000 0000',
       '12.5',
+      '1985-04-12',
     ];
 
     String sample(QrField field) {
@@ -147,8 +148,10 @@ void main() {
       fail('no sample passes the validator of ${field.id}; add one to samples');
     }
 
-    // Variant n picks the nth dropdown option, checkbox state and entry kind, so
-    // every option is written out and read back across the variants.
+    // Variant n picks the nth dropdown option, checkbox state and entry kind, expert
+    // kinds included, so every option is written out and read back across the
+    // variants. From variant 3, an entry of a group that takes several kinds is two
+    // kinds at once.
     Map<String, String> fill(QrFormat format, int variant) {
       final values = <String, String>{};
       for (final f in format.fields) {
@@ -164,8 +167,19 @@ void main() {
                 values[QrEntries.part(f.id, i, p.id)] = sample(p);
               }
               if (f.kinds != null) {
-                values[QrEntries.kind(f.id, i)] =
-                    f.kinds![(variant + i) % f.kinds!.length].value;
+                final kinds = f.kindsFor(expert: true);
+                String kind(int n) => kinds[n % kinds.length].value;
+                final named = [
+                  for (final k in kinds)
+                    if (k.value.isNotEmpty) k.value,
+                ];
+                values[QrEntries.kind(
+                  f.id,
+                  i,
+                )] = f.multipleKinds && variant >= 3
+                    ? '${named[(variant + i) % named.length]},'
+                          '${named[(variant + i + 1) % named.length]}'
+                    : kind(variant + i);
               }
             }
           default:
@@ -182,6 +196,21 @@ void main() {
           final parsed = format.parse(payload);
           expect(parsed, isNotNull, reason: payload);
           expect(parsed!.unsupported, isEmpty, reason: payload);
+          expect(format.buildQrString(parsed.values), payload);
+        }
+      });
+
+      test('${format.id} reads back its own beginner output', () {
+        for (var variant = 0; variant < 6; variant++) {
+          final values = QrForm.applied(
+            format.fields,
+            fill(format, variant),
+            expert: false,
+          );
+          final payload = format.buildQrString(values);
+          final parsed = format.parse(payload)!;
+          expect(parsed.unsupported, isEmpty, reason: payload);
+          expect(QrForm.expertOnly(format.fields, parsed.values), isEmpty);
           expect(format.buildQrString(parsed.values), payload);
         }
       });

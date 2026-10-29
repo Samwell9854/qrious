@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qrious/models/qr_field.dart';
 import 'package:qrious/formats/mecard_format.dart';
 
 void main() {
@@ -87,6 +88,56 @@ void main() {
     });
   });
 
+  group('expert properties', () {
+    test('are written beside the beginner ones, which keep their order', () {
+      expect(
+        format.buildQrString({
+          'first_name': 'Jo',
+          'last_name': 'Doe',
+          'nickname': 'JD',
+          'sound': 'do,jo',
+          'phone': '111',
+          'videophone': '222',
+          'email': 'jo@example.com',
+          'url': 'https://example.com',
+          'city': 'Laval',
+          'birthday': '1990-04-12',
+          'note': 'Met at; the fair',
+        }),
+        'MECARD:N:Doe,Jo;SOUND:do,jo;NICKNAME:JD;TEL:111;TEL-AV:222;'
+        'EMAIL:jo@example.com;URL:https://example.com;ADR:,,,Laval,,,;'
+        'BDAY:19900412;NOTE:Met at\\; the fair;;',
+      );
+    });
+
+    test('read back what they write', () {
+      final values = {
+        'first_name': 'Jo',
+        'nickname': 'JD',
+        'birthday': '1990-04-12',
+        'note': 'a\\b',
+        'videophone': '+1 555',
+      };
+      final parsed = format.parse(format.buildQrString(values))!;
+      expect(parsed.unsupported, isEmpty);
+      expect(format.buildQrString(parsed.values), format.buildQrString(values));
+    });
+
+    test('are expert-only, the birthday a date', () {
+      final expert = {
+        for (final f in format.fields)
+          if (f.expert) f.id: f.type,
+      };
+      expect(expert, {
+        'nickname': QrFieldType.text,
+        'sound': QrFieldType.text,
+        'videophone': QrFieldType.text,
+        'birthday': QrFieldType.date,
+        'note': QrFieldType.text,
+      });
+    });
+  });
+
   group('MeCardFormat.parse', () {
     test('reads back what it builds, escapes included', () {
       final values = {
@@ -100,6 +151,11 @@ void main() {
         'region': 'QC',
         'postal_code': 'H0H 0H0',
         'country': 'CA',
+        'nickname': r'N;i\k',
+        'sound': 'a,b',
+        'videophone': '+1 555 000 0001',
+        'birthday': '1990-04-12',
+        'note': r'x;y\z',
       };
       final parsed = format.parse(format.buildQrString(values))!;
       expect(parsed.values, values);
@@ -122,14 +178,28 @@ void main() {
         'NOTE:x;NOTE:y;SOUND:z;;',
       )!;
       expect(parsed.values['phone'], '111');
-      expect(parsed.unsupported, [
-        'NICKNAME',
-        'BDAY',
-        'TEL',
-        'TEL-AV',
-        'NOTE',
-        'SOUND',
-      ]);
+      expect(parsed.unsupported, ['TEL', 'NOTE']);
+    });
+
+    test('reads the expert properties into their fields', () {
+      final values = format
+          .parse(
+            'MECARD:N:Doe,Jo;NICKNAME:J\\;J;BDAY:19900101;TEL-AV:333;NOTE:x;'
+            'SOUND:do,jo;X-FOO:bar;;',
+          )!
+          .values;
+      expect(values['nickname'], 'J;J');
+      expect(values['birthday'], '1990-01-01');
+      expect(values['videophone'], '333');
+      expect(values['note'], 'x');
+      expect(values['sound'], 'do,jo');
+    });
+
+    test('keeps a birthday it cannot read, for the validator to flag', () {
+      expect(
+        format.parse('MECARD:N:Jo;BDAY:1990;;')!.values['birthday'],
+        '1990',
+      );
     });
 
     test('lists a PO box and extended address', () {

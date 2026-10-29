@@ -26,15 +26,45 @@ class MeCardFormat extends QrFormat {
   List<QrField> get fields => const [
     QrField(id: 'first_name', label: 'First Name', required: true),
     QrField(id: 'last_name', label: 'Last Name'),
+    QrField(id: 'nickname', label: 'Nickname', expert: true),
+    // How the name is read aloud, which Japanese phones file contacts under.
+    QrField(id: 'sound', label: 'Name Reading', hint: 'やまだ,たろう', expert: true),
     QrField(
       id: 'phone',
       label: 'Phone Number',
       hint: '+1 555 000 0000',
       validate: validatePhone,
     ),
+    QrField(
+      id: 'videophone',
+      label: 'Video Phone Number',
+      hint: '+1 555 000 0000',
+      validate: validatePhone,
+      expert: true,
+    ),
     QrField(id: 'email', label: 'Email Address', validate: validateEmail),
     QrField(id: 'url', label: 'Website', validate: validateUrl),
     ...addressFields,
+    QrField(
+      id: 'birthday',
+      label: 'Birthday',
+      type: QrFieldType.date,
+      validate: validateDate,
+      expert: true,
+    ),
+    QrField(id: 'note', label: 'Note', expert: true),
+  ];
+
+  /// The properties beyond the name, in the order they are written, by tag and
+  /// field. The beginner ones keep the order they had before expert mode, so a
+  /// beginner's code is unchanged.
+  static const _plain = [
+    ('SOUND', 'sound'),
+    ('NICKNAME', 'nickname'),
+    ('TEL', 'phone'),
+    ('TEL-AV', 'videophone'),
+    ('EMAIL', 'email'),
+    ('URL', 'url'),
   ];
 
   @override
@@ -46,11 +76,7 @@ class MeCardFormat extends QrFormat {
     final name = [lastName, firstName].where((s) => s.isNotEmpty).join(',');
     final properties = ['N:$name'];
 
-    for (final (tag, id) in const [
-      ('TEL', 'phone'),
-      ('EMAIL', 'email'),
-      ('URL', 'url'),
-    ]) {
+    for (final (tag, id) in _plain) {
       final value = (values[id] ?? '').trim();
       if (value.isNotEmpty) properties.add('$tag:${_escape(value)}');
     }
@@ -61,6 +87,14 @@ class MeCardFormat extends QrFormat {
     if (address != null) {
       properties.add('ADR:,,${address.map(_escapeComponent).join(',')}');
     }
+
+    // BDAY is the date without separators, as in 19850412.
+    final birthday = (values['birthday'] ?? '').trim();
+    if (birthday.isNotEmpty) {
+      properties.add('BDAY:${_escape(birthday.replaceAll('-', ''))}');
+    }
+    final note = (values['note'] ?? '').trim();
+    if (note.isNotEmpty) properties.add('NOTE:${_escape(note)}');
 
     return 'MECARD:${properties.join(';')};;';
   }
@@ -82,9 +116,9 @@ class MeCardFormat extends QrFormat {
   /// For a value inside `N:` or `ADR:`, where a comma separates components.
   String _escapeComponent(String s) => _escape(s).replaceAll(',', r'\,');
 
-  /// Undoes [_escape] and [_escapeComponent]. A property the form holds twice
-  /// (a second `TEL`) or not at all (`NICKNAME`, `BDAY`, `NOTE`, `SOUND`, `TEL-AV`)
-  /// is reported by its tag.
+  /// Undoes [_escape] and [_escapeComponent]. A property the form holds twice (a
+  /// second `TEL`) or not at all (`X-` extensions, a misspelt tag) is reported by its
+  /// tag.
   @override
   QrParsed? parse(String payload) {
     if (!hasPrefixIgnoreCase(payload, 'MECARD:')) return null;
@@ -100,9 +134,8 @@ class MeCardFormat extends QrFormat {
       }
       final tag = piece.substring(0, colon).toUpperCase();
       final raw = piece.substring(colon + 1);
-      // Each tag once: the form has one phone, email, address and name.
-      if (const {'N', 'TEL', 'EMAIL', 'URL', 'ADR'}.contains(tag) &&
-          !seen.add(tag)) {
+      // Each tag once: the form has one of each.
+      if (_once.contains(tag) && !seen.add(tag)) {
         addOnce(unsupported, tag);
         continue;
       }
@@ -117,12 +150,18 @@ class MeCardFormat extends QrFormat {
             values['first_name'] = names[1];
           }
           if (names.length > 2) addOnce(unsupported, 'N (extra names)');
-        case 'TEL':
-          values['phone'] = unescapeBackslash(raw).trim();
-        case 'EMAIL':
-          values['email'] = unescapeBackslash(raw).trim();
-        case 'URL':
-          values['url'] = unescapeBackslash(raw).trim();
+        case 'BDAY':
+          final digits = unescapeBackslash(raw).trim();
+          // Back to the field's own form, so the date picker can open on it. Any
+          // other shape is kept as it was, for the validator to point at.
+          final date = RegExp(r'^(\d{4})(\d{2})(\d{2})$').firstMatch(digits);
+          values['birthday'] = date == null
+              ? digits
+              : '${date[1]}-${date[2]}-${date[3]}';
+        case 'NOTE':
+          values['note'] = unescapeBackslash(raw).trim();
+        case _ when _plainIds.containsKey(tag):
+          values[_plainIds[tag]!] = unescapeBackslash(raw).trim();
         case 'ADR':
           final adr = _components(raw);
           String at(int i) => i < adr.length ? adr[i] : '';
@@ -137,6 +176,21 @@ class MeCardFormat extends QrFormat {
     }
     return QrParsed(values, unsupported);
   }
+
+  static const _once = {
+    'N',
+    'SOUND',
+    'NICKNAME',
+    'TEL',
+    'TEL-AV',
+    'EMAIL',
+    'URL',
+    'ADR',
+    'BDAY',
+    'NOTE',
+  };
+
+  static final _plainIds = {for (final (tag, id) in _plain) tag: id};
 
   /// A value split at its unescaped commas, each component unescaped.
   static List<String> _components(String raw) => [
