@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../qr_encoding.dart';
 import '../qr_export.dart';
 import '../qr_png.dart';
+import '../qr_segments.dart';
 import '../settings.dart';
+import 'auto_dropdown.dart';
 import 'number_field.dart';
 
 /// Below this width settings take the whole screen instead of floating over it. The
@@ -150,6 +152,34 @@ class _SettingsViewState extends State<SettingsView> {
             max: (maxImageSide ~/ _settings.expertPixelsPerModule - 21) ~/ 2,
             helper: 'default ${_defaults.quietZone}, as the spec says',
             onChanged: (n) => _change(_settings.copyWith(quietZone: n)),
+          ),
+          const SizedBox(height: 16),
+          AutoDropdown<int>(
+            label: 'Version',
+            autoLabel: 'Auto (default)',
+            value: _settings.version,
+            values: [for (var v = 1; v <= 40; v++) v],
+            labelOf: (v) => '$v (${v * 4 + 17}×${v * 4 + 17})',
+            onChanged: (v) => _change(_settings.copyWith(version: () => v)),
+          ),
+          const SizedBox(height: 16),
+          AutoDropdown<int>(
+            label: 'Mask',
+            autoLabel: 'Auto (default)',
+            value: _settings.mask,
+            values: const [0, 1, 2, 3, 4, 5, 6, 7],
+            labelOf: (m) => '$m',
+            onChanged: (m) => _change(_settings.copyWith(mask: () => m)),
+          ),
+          const SizedBox(height: 16),
+          AutoDropdown<EncodingMode>(
+            label: 'Encoding mode',
+            autoLabel: 'Auto (default)',
+            value: _settings.encodingMode,
+            values: EncodingMode.values,
+            labelOf: (m) => m.label,
+            onChanged: (m) =>
+                _change(_settings.copyWith(encodingMode: () => m)),
           ),
         ] else
           DropdownButtonFormField<ImageSize>(

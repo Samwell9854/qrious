@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:qrious/qr_encoding.dart';
 import 'package:qrious/qr_export.dart';
 import 'package:qrious/qr_png.dart';
+import 'package:qrious/qr_segments.dart';
 import 'package:qrious/screens/home_screen.dart';
 import 'package:qrious/settings.dart';
 
@@ -129,6 +130,9 @@ void main() {
         'imageSize': 'large',
         'saveFileType': 'svg',
         'quietZone': 4,
+        'version': 'auto',
+        'mask': 'auto',
+        'encodingMode': 'auto',
       });
     });
 
@@ -175,6 +179,25 @@ void main() {
         file.writeAsStringSync('{"pixelsPerModule": 0, "quietZone": -1}');
         expect(await loadSettings(file), const Settings());
         file.writeAsStringSync('{"pixelsPerModule": "big", "quietZone": 2.5}');
+        expect(await loadSettings(file), const Settings());
+      },
+    );
+
+    test(
+      'version, mask and mode round-trip, bad values read as auto',
+      () async {
+        final file = File('${temp.path}/settings.json');
+        const expert = Settings(
+          version: 7,
+          mask: 0,
+          encodingMode: EncodingMode.alphanumeric,
+        );
+        await saveSettings(expert, file);
+        expect(await loadSettings(file), expert);
+
+        file.writeAsStringSync(
+          '{"version": 41, "mask": 8, "encodingMode": "kanji"}',
+        );
         expect(await loadSettings(file), const Settings());
       },
     );

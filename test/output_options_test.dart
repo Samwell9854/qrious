@@ -118,7 +118,9 @@ void main() {
 
     expect(find.byType(QrSymbol), findsNothing);
     expect(
-      find.text('Too much data for a QR code\nat this error correction'),
+      find.text(
+        'Too much data for a QR code,\neven at the lowest error correction',
+      ),
       findsOneWidget,
     );
     final save = tester.widget<FilledButton>(

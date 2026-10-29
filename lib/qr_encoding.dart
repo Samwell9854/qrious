@@ -45,8 +45,7 @@ enum ErrorCorrection {
 
 /// A payload encoded into a QR symbol, with the choices it ended up at.
 class EncodedQr {
-  EncodedQr._(this.code, this.errorCorrection, this.segments)
-    : image = QrImage(code);
+  EncodedQr._(this.code, this.image, this.errorCorrection, this.segments);
 
   final QrCode code;
 
@@ -67,6 +66,12 @@ class EncodedQr {
 
   /// The mask pattern, 0 to 7, that the matrix was drawn with.
   int get mask => image.maskPattern;
+
+  /// The one mode the whole payload is written in, or null when it is split.
+  EncodingMode? get mode => switch (segments) {
+    [final only] => only.mode,
+    _ => null,
+  };
 }
 
 /// What [ErrorCorrection.auto] guarantees when the payload allows it.
@@ -79,8 +84,8 @@ const _strongestFirst = [
   ErrorCorrection.low,
 ];
 
-/// Encodes [data] at [choice], throwing [InputTooLongException] when it does not
-/// fit even the largest symbol at that level.
+/// Encodes [data] as asked, or as near to it as [data] allows, throwing
+/// [InputTooLongException] only when no symbol can hold it at all.
 ///
 /// The payload is split into runs of numeric, alphanumeric and byte mode wherever
 /// that is shorter than writing it all as bytes (see `qr_segments.dart`), so digits
@@ -91,54 +96,143 @@ const _strongestFirst = [
 /// it goes without needing a larger symbol. A symbol's size comes in fixed steps
 /// and the room a payload does not use is filled with padding, so the stronger
 /// level spends that padding on repair data and costs nothing in size or density.
-EncodedQr encodeQr(String data, ErrorCorrection choice) {
+///
+/// The expert choices are null for automatic. [version] is the smallest version to
+/// use, [mask] the mask pattern, and [mode] one mode for the whole payload. A choice
+/// that [data] cannot take gets the nearest that it can: a mode it cannot be written
+/// in gives way to the automatic split, a level it is too long for to the next weaker
+/// one, and a version too small for it to the next larger one. What was used is on the
+/// result, for the caller to compare with what was asked; [canEncode] says beforehand
+/// whether a choice can be taken as it is.
+EncodedQr encodeQr(
+  String data,
+  ErrorCorrection choice, {
+  int? version,
+  int? mask,
+  EncodingMode? mode,
+}) {
+  final from = version ?? 1;
+  final forced =
+      mode != null && _fit(data, ErrorCorrection.low, mode, 1) != null
+      ? mode
+      : null;
   final level = switch (choice) {
-    ErrorCorrection.auto => _resolveAuto(data),
-    _ => choice,
+    ErrorCorrection.auto => _resolveAuto(data, forced, from),
+    _ =>
+      _strongestFirst
+          .skipWhile((level) => level != choice)
+          .firstWhere(
+            (level) => _fit(data, level, forced, from) != null,
+            orElse: () => choice,
+          ),
   };
-  final fit = _fit(data, level);
+  final fit = _fit(data, level, forced, from);
   if (fit == null) {
     final segments = segmentsFor(data, 40);
     throw InputTooLongException(
       bitLength(segments, 40),
-      dataCapacityBits(40, level.qrLevel!),
+      dataCapacityBits(40, ErrorCorrection.low.qrLevel!),
     );
   }
-  final (version, segments) = fit;
-  final code = QrCode(version, level.qrLevel!);
+  final (fitted, segments) = fit;
+  final code = QrCode(fitted, level.qrLevel!);
   addSegments(code, segments);
-  return EncodedQr._(code, level, segments);
+  final image = mask == null
+      ? QrImage(code)
+      : QrImage.withMaskPattern(code, mask);
+  return EncodedQr._(code, image, level, segments);
 }
 
-ErrorCorrection _resolveAuto(String data) {
-  final floor = _fit(data, _autoFloor) != null
+/// Whether [data] can be encoded exactly as asked, with no choice giving way: at
+/// [level] (any, for auto), at exactly [version] when one is given, and all in [mode]
+/// when one is given. The mask is not asked about, because every mask fits.
+bool canEncode(
+  String data,
+  ErrorCorrection level, {
+  int? version,
+  EncodingMode? mode,
+}) {
+  if (mode != null && !mode.canHold(data)) return false;
+  final levels = level == ErrorCorrection.auto ? _strongestFirst : [level];
+  return levels.any((level) {
+    if (version == null) return _fit(data, level, mode, 1) != null;
+    return _holds(data, level, mode, version) != null;
+  });
+}
+
+ErrorCorrection _resolveAuto(String data, EncodingMode? mode, int from) {
+  final floor = _fit(data, _autoFloor, mode, from) != null
       ? _autoFloor
       : ErrorCorrection.low;
-  final base = _fit(data, floor);
+  final base = _fit(data, floor, mode, from);
   if (base == null) {
     // Too long at every level; encoding at low throws the exception that says so.
     return ErrorCorrection.low;
   }
   return _strongestFirst.firstWhere((level) {
-    final fit = _fit(data, level);
+    final fit = _fit(data, level, mode, from);
     return fit != null && fit.$1 <= base.$1;
   });
 }
 
-/// The smallest version that holds [data] at [level], with the runs it is written
-/// in there, or null when none does.
-(int, List<QrSegment>)? _fit(String data, ErrorCorrection level) {
+/// The smallest version from [from] up that holds [data] at [level], all in [mode]
+/// when given, with the runs it is written in there; null when none does.
+(int, List<QrSegment>)? _fit(
+  String data,
+  ErrorCorrection level,
+  EncodingMode? mode,
+  int from,
+) {
+  if (mode != null && !mode.canHold(data)) return null;
   // The best split depends on the version only through the width of the count
   // fields, which changes twice, so there are three splits to work out at most.
   List<QrSegment>? segments;
-  for (var version = 1; version <= 40; version++) {
+  for (var version = from; version <= 40; version++) {
     if (segments == null || version == 10 || version == 27) {
-      segments = segmentsFor(data, version);
+      segments = _segments(data, version, mode);
     }
-    if (bitLength(segments, version) <=
-        dataCapacityBits(version, level.qrLevel!)) {
+    if (_room(level, version) case final room?
+        when bitLength(segments, version) <= room) {
       return (version, segments);
     }
   }
   return null;
 }
+
+/// The runs [data] is written in at exactly [version], or null when it does not fit.
+List<QrSegment>? _holds(
+  String data,
+  ErrorCorrection level,
+  EncodingMode? mode,
+  int version,
+) {
+  final segments = _segments(data, version, mode);
+  final room = _room(level, version);
+  return room != null && bitLength(segments, version) <= room ? segments : null;
+}
+
+/// The data bits [version] holds at [level], or null where the `qr` package cannot
+/// draw a readable symbol, which is then never chosen.
+int? _room(ErrorCorrection level, int version) =>
+    brokenInQrPackage(version, level.qrLevel!)
+    ? null
+    : dataCapacityBits(version, level.qrLevel!);
+
+/// [segmentsFor], remembered for the last payload. The split depends only on the
+/// payload, the mode and which of the three count-field widths the version has, and
+/// the screen asks about every version and mode on each keystroke to grey out the
+/// ones that cannot be had, which would otherwise redo the same split 40 times.
+List<QrSegment> _segments(String data, int version, EncodingMode? mode) {
+  if (data != _cachedData) {
+    _cache.clear();
+    _cachedData = data;
+  }
+  final width = version < 10 ? 0 : (version < 27 ? 1 : 2);
+  return _cache.putIfAbsent((
+    width,
+    mode,
+  ), () => segmentsFor(data, version, forced: mode));
+}
+
+String? _cachedData;
+final _cache = <(int, EncodingMode?), List<QrSegment>>{};

@@ -77,10 +77,17 @@ void main() {
       }
     });
 
-    test('throws when the payload does not fit the largest symbol', () {
-      // Version 40 holds 2331 bytes at medium.
+    test('gives way to the next weaker level that holds the payload', () {
+      // Version 40 holds 2331 bytes at medium and 2953 at low.
+      final qr = encodeQr('x' * 2500, ErrorCorrection.medium);
+      expect(qr.errorCorrection, ErrorCorrection.low);
+      expect(canEncode('x' * 2500, ErrorCorrection.medium), isFalse);
+      expect(canEncode('x' * 2500, ErrorCorrection.low), isTrue);
+    });
+
+    test('throws when no level holds the payload', () {
       expect(
-        () => encodeQr('x' * 2500, ErrorCorrection.medium),
+        () => encodeQr('x' * 3000, ErrorCorrection.medium),
         throwsA(isA<InputTooLongException>()),
       );
     });
@@ -134,5 +141,79 @@ void main() {
       ErrorCorrection.values.skip(1).map((level) => level.recoveryPercent),
       [7, 15, 25, 30],
     );
+  });
+
+  group('expert choices', () {
+    const data = 'https://example.com';
+
+    test('a larger version than needed is used as given', () {
+      final qr = encodeQr(data, ErrorCorrection.medium, version: 7);
+      expect(qr.version, 7);
+      expect(readBack(qr), [data]);
+      expect(canEncode(data, ErrorCorrection.medium, version: 7), isTrue);
+    });
+
+    test('a version too small gives way to the smallest that fits', () {
+      expect(canEncode(data, ErrorCorrection.highest, version: 1), isFalse);
+      final qr = encodeQr(data, ErrorCorrection.highest, version: 1);
+      expect(qr.version, encodeQr(data, ErrorCorrection.highest).version);
+    });
+
+    test(
+      'auto at a chosen version raises the level as that version allows',
+      () {
+        final qr = encodeQr(data, ErrorCorrection.auto, version: 10);
+        expect(qr.version, 10);
+        expect(qr.errorCorrection, ErrorCorrection.highest);
+      },
+    );
+
+    test('version 15 at H is never used, as the qr package draws it wrong', () {
+      expect(canEncode(data, ErrorCorrection.highest, version: 15), isFalse);
+      expect(encodeQr(data, ErrorCorrection.highest, version: 15).version, 16);
+      final auto = encodeQr(data, ErrorCorrection.auto, version: 15);
+      expect(auto.version, 15);
+      expect(auto.errorCorrection, ErrorCorrection.high);
+      expect(canEncode(data, ErrorCorrection.auto, version: 15), isTrue);
+    });
+
+    test('every mask is drawn as asked and reads back', () {
+      for (var mask = 0; mask < 8; mask++) {
+        final qr = encodeQr(data, ErrorCorrection.medium, mask: mask);
+        expect(qr.mask, mask);
+        expect(readBack(qr), [data], reason: 'mask $mask');
+      }
+    });
+
+    test('a forced mode writes the whole payload in it', () {
+      const digits = '0123456789';
+      for (final mode in EncodingMode.values) {
+        final qr = encodeQr(digits, ErrorCorrection.medium, mode: mode);
+        expect(qr.mode, mode);
+        expect(readBack(qr), [digits], reason: mode.name);
+      }
+    });
+
+    test('a mode that cannot write the text gives way to the split', () {
+      expect(
+        canEncode(data, ErrorCorrection.medium, mode: EncodingMode.numeric),
+        isFalse,
+      );
+      final qr = encodeQr(
+        data,
+        ErrorCorrection.medium,
+        mode: EncodingMode.alphanumeric,
+      );
+      expect(qr.mode, EncodingMode.byte);
+      expect(readBack(qr), [data]);
+    });
+
+    test('the largest version, every level, reads back', () {
+      for (final level in ErrorCorrection.values.skip(1)) {
+        final qr = encodeQr(data, level, version: 40);
+        expect(qr.version, 40);
+        expect(readBack(qr), [data], reason: level.name);
+      }
+    });
   });
 }

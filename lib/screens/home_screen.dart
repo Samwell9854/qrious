@@ -18,11 +18,13 @@ import '../qr_decoding.dart';
 import '../qr_encoding.dart';
 import '../qr_export.dart';
 import '../qr_png.dart';
+import '../qr_segments.dart';
 import '../save_location.dart';
 import '../settings.dart';
 import '../svg_raster.dart';
 import '../webcam.dart';
 import '../widgets/app_title.dart';
+import '../widgets/auto_dropdown.dart';
 import '../widgets/camera_scanner.dart';
 import '../widgets/fill_then_scroll.dart';
 import '../widgets/full_screen_qr.dart';
@@ -116,6 +118,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // they are as they were when expert mode comes back.
   late int _pixelsPerModule = _settings.expertPixelsPerModule;
   late int _quietZone = _settings.quietZone;
+  late int? _version = _settings.version;
+  late int? _mask = _settings.mask;
+  late EncodingMode? _mode = _settings.encodingMode;
 
   bool get _expert => _settings.expertMode;
 
@@ -592,11 +597,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return field.validate?.call(value);
   }
 
-  /// [qrString] encoded at the chosen error correction, or null when it is too
-  /// long for the largest symbol at that level.
+  /// [qrString] encoded as chosen, or as near as it allows (expert choices only in
+  /// expert mode), or null when it is too long for any symbol.
   EncodedQr? _encode(String qrString) {
     try {
-      return encodeQr(qrString, _errorCorrection);
+      return encodeQr(
+        qrString,
+        _errorCorrection,
+        version: _expert ? _version : null,
+        mask: _expert ? _mask : null,
+        mode: _expert ? _mode : null,
+      );
     } on InputTooLongException {
       return null;
     }
@@ -720,6 +731,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       if (settings.quietZone != before.quietZone) {
         _quietZone = settings.quietZone;
+      }
+      if (settings.version != before.version) _version = settings.version;
+      if (settings.mask != before.mask) _mask = settings.mask;
+      if (settings.encodingMode != before.encodingMode) {
+        _mode = settings.encodingMode;
       }
     });
     final messenger = ScaffoldMessenger.of(context);
@@ -1431,8 +1447,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final layout = _layoutFor(qr);
     final side = layout.sideFor(qr);
     if (!_expert) {
-      return '$chosen${level.label} error correction, survives '
-          '${level.recoveryPercent}% damage · $side × $side px';
+      return [
+        '$chosen${level.label} error correction, survives '
+            '${level.recoveryPercent}% damage',
+        '$side × $side px',
+        ..._fallbacks(qr, layout),
+      ].join(' · ');
     }
     final modes = {
       for (final segment in qr.segments) segment.mode.label.toLowerCase(),
@@ -1444,12 +1464,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       'mask ${qr.mask}',
       if (modes.isNotEmpty) modes,
       '$side × $side px',
-      ..._fallbacks(layout),
+      ..._fallbacks(qr, layout),
     ].join(' · ');
   }
 
   /// The choices this code could not take as they are, each with what it got instead.
-  List<String> _fallbacks(QrLayout layout) => [
+  List<String> _fallbacks(EncodedQr qr, QrLayout layout) => [
+    if (_errorCorrection != ErrorCorrection.auto &&
+        qr.errorCorrection != _errorCorrection)
+      '${_errorCorrection.label} cannot hold this text; '
+          'using ${qr.errorCorrection.label}',
+    if ((_expert ? _version : null) case final version?
+        when qr.version != version)
+      version == 15 && qr.errorCorrection == ErrorCorrection.highest
+          ? 'version 15 cannot be drawn at H; using ${qr.version}'
+          : 'version $version is too small for this text; using ${qr.version}',
+    if ((_expert ? _mode : null) case final mode? when qr.mode != mode)
+      '${mode.label.toLowerCase()} cannot write this text; '
+          'using the automatic split',
     if (layout.quietZone != _quietZone)
       'quiet zone $_quietZone is too wide for this code; using ${layout.quietZone}',
     if (layout.pixelsPerModule != _pixelsPerModule)
@@ -1461,6 +1493,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// spec-level choices. Each takes half its row, as the buttons below do, so all of
   /// them still fit the 390px phone layout.
   Widget _buildOutputOptions(EncodedQr? qr) {
+    // What the code took as asked, which the check on each other choice holds fixed.
+    // Without a code there is nothing to check against, and everything is offered.
+    final data = qr == null ? null : _qrString;
+    final level = qr == null || _errorCorrection == ErrorCorrection.auto
+        ? ErrorCorrection.auto
+        : qr.errorCorrection;
+    final version = _expert && qr != null && _version == qr.version
+        ? _version
+        : null;
+    final mode = _expert && qr != null && _mode != null && qr.mode == _mode
+        ? _mode
+        : null;
+    String tooMuch() =>
+        version == null ? 'too much data' : 'too much for version $version';
+
+    String? levelUnavailable(ErrorCorrection l) {
+      if (data == null || l == ErrorCorrection.auto) return null;
+      if (canEncode(data, l, version: version, mode: mode)) return null;
+      if (version == 15 && l == ErrorCorrection.highest) {
+        return 'not at version 15';
+      }
+      return tooMuch();
+    }
+
     final errorCorrection = DropdownButtonFormField<ErrorCorrection>(
       // Keyed by the value so a default changed in settings shows here too:
       // initialValue is read only when the field is created.
@@ -1471,17 +1527,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         labelText: 'Error correction',
         border: OutlineInputBorder(),
       ),
-      items: ErrorCorrection.values
-          .map(
-            (level) => DropdownMenuItem(
+      items: [
+        for (final level in ErrorCorrection.values)
+          switch (levelUnavailable(level)) {
+            null => DropdownMenuItem(
               value: level,
               child: Text(
                 level.choiceLabel(expert: _expert),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-          )
-          .toList(),
+            final reason => DropdownMenuItem(
+              value: level,
+              enabled: false,
+              child: Text(
+                '${level.choiceLabel(expert: _expert)} · $reason',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Theme.of(context).disabledColor),
+              ),
+            ),
+          },
+      ],
+      // The closed field shows the plain label: a pick that has since become
+      // impossible is said so in the caption.
+      selectedItemBuilder: (context) => [
+        for (final level in ErrorCorrection.values)
+          Text(
+            level.choiceLabel(expert: _expert),
+            overflow: TextOverflow.ellipsis,
+          ),
+      ],
       onChanged: (level) {
         if (level == null) return;
         setState(() => _errorCorrection = level);
@@ -1537,6 +1612,50 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 12),
         _optionRow(
+          AutoDropdown<int>(
+            label: 'Version',
+            value: _version,
+            values: [for (var v = 1; v <= 40; v++) v],
+            labelOf: (v) => '$v (${v * 4 + 17}×${v * 4 + 17})',
+            unavailable: (v) {
+              if (data == null ||
+                  canEncode(data, level, version: v, mode: mode)) {
+                return null;
+              }
+              return v == 15 && level == ErrorCorrection.highest
+                  ? 'not at H'
+                  : 'too small';
+            },
+            onChanged: (v) => setState(() => _version = v),
+          ),
+          AutoDropdown<int>(
+            label: 'Mask',
+            value: _mask,
+            values: const [0, 1, 2, 3, 4, 5, 6, 7],
+            labelOf: (m) => '$m',
+            onChanged: (m) => setState(() => _mask = m),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _optionRow(
+          AutoDropdown<EncodingMode>(
+            label: 'Encoding mode',
+            value: _mode,
+            values: EncodingMode.values,
+            labelOf: (m) => m.label,
+            unavailable: (m) {
+              if (data == null) return null;
+              if (!m.canHold(data)) {
+                return m == EncodingMode.numeric
+                    ? 'digits only'
+                    : 'text has other characters';
+              }
+              return canEncode(data, level, version: version, mode: m)
+                  ? null
+                  : tooMuch();
+            },
+            onChanged: (m) => setState(() => _mode = m),
+          ),
           NumberField(
             label: 'Quiet zone (modules)',
             value: _quietZone,
@@ -1545,7 +1664,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             helper: 'spec 4',
             onChanged: (n) => setState(() => _quietZone = n),
           ),
-          const SizedBox.shrink(),
         ),
       ],
     );
@@ -1687,7 +1805,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: switch ((filled, qr)) {
         (_, final EncodedQr qr) => _buildCode(qr, qrSize ?? 0),
         (true, null) => const Text(
-          'Too much data for a QR code\nat this error correction',
+          'Too much data for a QR code,\neven at the lowest error correction',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.red),
         ),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'qr_encoding.dart';
 import 'qr_export.dart';
 import 'qr_png.dart';
+import 'qr_segments.dart';
 
 /// What the app starts each launch with. The output controls beside the preview start
 /// from these and then change the current code only.
@@ -15,6 +16,9 @@ class Settings {
     this.saveFileType,
     this.pixelsPerModule,
     this.quietZone = quietZoneModules,
+    this.version,
+    this.mask,
+    this.encodingMode,
   });
 
   /// Whether the app offers everything the spec allows rather than the beginner set.
@@ -35,6 +39,15 @@ class Settings {
   /// Expert mode's quiet zone, in modules. Beginner mode always has the spec's 4.
   final int quietZone;
 
+  /// Expert mode's symbol version, 1 to 40; null picks the smallest that fits.
+  final int? version;
+
+  /// Expert mode's mask pattern, 0 to 7; null picks the one the spec scores best.
+  final int? mask;
+
+  /// Expert mode's one mode for the whole payload; null splits it automatically.
+  final EncodingMode? encodingMode;
+
   /// Expert mode's pixels per module, as chosen or else from [imageSize].
   int get expertPixelsPerModule => pixelsPerModule ?? imageSize.pixelsPerModule;
 
@@ -45,6 +58,9 @@ class Settings {
     ExportFileType? Function()? saveFileType,
     int? pixelsPerModule,
     int? quietZone,
+    int? Function()? version,
+    int? Function()? mask,
+    EncodingMode? Function()? encodingMode,
   }) => Settings(
     expertMode: expertMode ?? this.expertMode,
     errorCorrection: errorCorrection ?? this.errorCorrection,
@@ -52,6 +68,9 @@ class Settings {
     saveFileType: saveFileType != null ? saveFileType() : this.saveFileType,
     pixelsPerModule: pixelsPerModule ?? this.pixelsPerModule,
     quietZone: quietZone ?? this.quietZone,
+    version: version != null ? version() : this.version,
+    mask: mask != null ? mask() : this.mask,
+    encodingMode: encodingMode != null ? encodingMode() : this.encodingMode,
   );
 
   /// Enum names rather than labels, so renaming a label does not lose anyone's choice.
@@ -62,6 +81,9 @@ class Settings {
     'saveFileType': saveFileType?.name ?? 'ask',
     'pixelsPerModule': ?pixelsPerModule,
     'quietZone': quietZone,
+    'version': version ?? 'auto',
+    'mask': mask ?? 'auto',
+    'encodingMode': encodingMode?.name ?? 'auto',
   };
 
   /// Each value falls back to its default on its own when it is missing or unknown, so
@@ -90,6 +112,15 @@ class Settings {
         final int n when n >= 0 => n,
         _ => defaults.quietZone,
       },
+      version: switch (map['version']) {
+        final int n when n >= 1 && n <= 40 => n,
+        _ => null,
+      },
+      mask: switch (map['mask']) {
+        final int n when n >= 0 && n <= 7 => n,
+        _ => null,
+      },
+      encodingMode: named(EncodingMode.values, map['encodingMode']),
     );
   }
 
@@ -101,7 +132,10 @@ class Settings {
       other.imageSize == imageSize &&
       other.saveFileType == saveFileType &&
       other.pixelsPerModule == pixelsPerModule &&
-      other.quietZone == quietZone;
+      other.quietZone == quietZone &&
+      other.version == version &&
+      other.mask == mask &&
+      other.encodingMode == encodingMode;
 
   @override
   int get hashCode => Object.hash(
@@ -111,6 +145,9 @@ class Settings {
     saveFileType,
     pixelsPerModule,
     quietZone,
+    version,
+    mask,
+    encodingMode,
   );
 }
 
