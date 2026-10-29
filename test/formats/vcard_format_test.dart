@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qrious/models/qr_field.dart';
 import 'package:qrious/formats/vcard_format.dart';
 
 /// Phone entries as the screen stores them: the count, then each entry's number
@@ -324,15 +325,42 @@ END:VCARD''');
       expect(parsed.unsupported, isEmpty);
     });
 
-    test('picks a kind from the TYPE list, and none when it has none', () {
+    test('keeps every type it knows, which beginner mode reads as one', () {
       final parsed = format.parse(
         'BEGIN:VCARD\nN:Doe;Jo;;;\n'
-        'TEL;TYPE=VOICE,WORK:111\nTEL;CELL:222\nTEL;TYPE=VOICE:333\n'
+        'TEL;TYPE=VOICE,WORK:111\nTEL;CELL:222\nTEL;TYPE=VOICE,X-ODD:333\n'
+        'TEL:444\nEMAIL;TYPE=INTERNET,PREF:a@example.com\n'
         'END:VCARD',
       )!;
-      expect(parsed.values['phones.0.kind'], 'WORK');
+      expect(parsed.values['phones.0.kind'], 'VOICE,WORK');
       expect(parsed.values['phones.1.kind'], 'CELL');
-      expect(parsed.values['phones.2.kind'], '');
+      expect(parsed.values['phones.2.kind'], 'VOICE');
+      expect(parsed.values['phones.3.kind'], '');
+      expect(parsed.values['emails.0.kind'], 'INTERNET,PREF');
+
+      final beginner = QrForm.applied(
+        format.fields,
+        parsed.values,
+        expert: false,
+      );
+      expect(beginner['phones.0.kind'], 'WORK');
+      expect(beginner['phones.2.kind'], '');
+      expect(beginner['emails.0.kind'], '');
+    });
+
+    test('writes several types as one TYPE list, in the order picked', () {
+      final payload = format.buildQrString({
+        'first_name': 'Jo',
+        'phones': '1',
+        'phones.0.number': '111',
+        'phones.0.kind': 'WORK,VOICE,PREF',
+        'emails': '1',
+        'emails.0.address': 'a@example.com',
+        'emails.0.kind': 'INTERNET,PREF',
+      });
+      expect(payload, contains('\nTEL;TYPE=WORK,VOICE,PREF:111\n'));
+      expect(payload, contains('\nEMAIL;TYPE=INTERNET,PREF:a@example.com\n'));
+      expect(format.parse(payload)!.unsupported, isEmpty);
     });
 
     test('lists what the form lacks, once each', () {

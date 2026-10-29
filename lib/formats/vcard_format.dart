@@ -21,7 +21,9 @@ class VCardFormat extends QrFormat {
 
   // Phones, emails and addresses are groups: none to start with, as many as the
   // user adds, each labelled with a kind that becomes a TYPE= parameter. The
-  // kinds are the beginner set from RFC 2426; an empty value means no TYPE.
+  // kinds are the beginner set from RFC 2426; an empty value means no TYPE. Expert
+  // mode adds the rest of RFC 2426's phone and email types, and lets an entry be
+  // several at once (TYPE=WORK,VOICE), PREF marking the main one.
   static const _phones = QrField(
     id: 'phones',
     label: 'Phone',
@@ -41,6 +43,19 @@ class VCardFormat extends QrFormat {
       QrKind('FAX', 'Fax', Icons.fax_outlined),
       QrKind('', 'Other', Icons.phone_outlined),
     ],
+    expertKinds: [
+      QrKind('PREF', 'Main', Icons.star_outline),
+      QrKind('VOICE', 'Voice', Icons.call_outlined),
+      QrKind('MSG', 'Messaging', Icons.voicemail),
+      QrKind('PAGER', 'Pager', Icons.notifications_outlined),
+      QrKind('VIDEO', 'Video', Icons.videocam_outlined),
+      QrKind('CAR', 'Car', Icons.directions_car_outlined),
+      QrKind('ISDN', 'ISDN', Icons.settings_phone_outlined),
+      QrKind('PCS', 'PCS', Icons.cell_tower),
+      QrKind('BBS', 'BBS', Icons.forum_outlined),
+      QrKind('MODEM', 'Modem', Icons.router_outlined),
+    ],
+    multipleKinds: true,
   );
 
   static const _emails = QrField(
@@ -53,6 +68,12 @@ class VCardFormat extends QrFormat {
       QrKind('WORK', 'Work', Icons.work_outline),
       QrKind('', 'Other', Icons.alternate_email),
     ],
+    expertKinds: [
+      QrKind('PREF', 'Main', Icons.star_outline),
+      QrKind('INTERNET', 'Internet', Icons.public),
+      QrKind('X400', 'X.400', Icons.mail_outline),
+    ],
+    multipleKinds: true,
   );
 
   static const _addresses = QrField(
@@ -231,13 +252,16 @@ class VCardFormat extends QrFormat {
           values['url'] = _unescape(value);
         case 'TEL':
           if (value.trim().isNotEmpty) {
-            phones.add({'number': value.trim(), 'kind': _kind(_phones, types)});
+            phones.add({
+              'number': value.trim(),
+              'kind': _kinds(_phones, types),
+            });
           }
         case 'EMAIL':
           if (value.isNotEmpty) {
             emails.add({
               'address': _unescape(value),
-              'kind': _kind(_emails, types),
+              'kind': _kinds(_emails, types),
             });
           }
         case 'ADR':
@@ -319,6 +343,17 @@ class VCardFormat extends QrFormat {
       if (t.isNotEmpty && offered.contains(t)) return t;
     }
     return offered.contains('') ? '' : offered.first;
+  }
+
+  /// Every one of [types] that [group] offers in expert mode, in the order written,
+  /// comma-joined as a kind of several; the no-type kind when there are none. Beginner
+  /// mode reads it as its first beginner kind (see `QrForm.applied`).
+  static String _kinds(QrField group, List<String> types) {
+    final offered = {
+      for (final k in group.kindsFor(expert: true))
+        if (k.value.isNotEmpty) k.value,
+    };
+    return types.where(offered.contains).toSet().join(',');
   }
 
   /// Undoes [_escape]; `\n` and `\N` are the line break.
