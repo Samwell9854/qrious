@@ -24,7 +24,7 @@ class QrParsed {
 [lib/models/qr_field.dart](../lib/models/qr_field.dart):
 
 ```dart
-enum QrFieldType { text, password, multiline, dropdown, checkbox, group }
+enum QrFieldType { text, password, multiline, dropdown, checkbox, group, date }
 
 typedef QrFieldValidator = String? Function(String value);
 
@@ -38,6 +38,10 @@ class QrField {
   final QrFieldValidator? validate; // optional; also gates QR rendering
   final List<QrField>? parts;  // group only: the fields one entry is made of
   final List<QrKind>? kinds;   // group only: what an entry can be labelled as
+  final List<QrKind> expertKinds; // group only: further kinds, in expert mode
+  final bool multipleKinds;    // group only: an entry can be several kinds, in expert mode
+  final bool expert;           // shown and written only in expert mode
+  final ({String field, String value})? showWhen; // shown only while an earlier field holds a value
 }
 
 class QrKind {
@@ -57,6 +61,14 @@ The picker lists formats under headings for what scanning the code does, because
 
 A code type other than QR (Data Matrix, Aztec, PDF417) would be an output option, not a group: it changes how the content is drawn, not what it is. 1D product barcodes, which carry only a number, would be a group of their own. See [#17](https://github.com/Samwell9854/qrious/issues/17).
 
+## Expert fields
+
+A format declares what expert mode adds; it never asks which mode is on. `expert: true` marks a field that only expert mode shows and writes, and `expertKinds` the kinds only expert mode offers for a group, with `multipleKinds` letting an entry be several at once through a checklist. `showWhen` shows a field only while an earlier field holds a value, as the SMS form shows extra recipients only for `sms:`, which can carry them.
+
+Before `buildQrString`, the screen and the importer pass the values through `QrForm.applied` ([qr_field.dart](../lib/models/qr_field.dart)): what the mode does not show is left out, and in beginner mode a group entry's kind becomes the first beginner kind among its kinds, else the group's no-type kind (`WORK,VOICE,PREF` is Work; `PAGER` is Other). Nothing is deleted from the form: a value beginner mode does not write is kept, and is written again once expert mode is on. So `buildQrString` treats a missing key as empty, as everywhere, and a dropdown that only expert mode shows reads its default when the key is missing.
+
+Place expert fields where they belong by meaning, not at the end: a nickname beside the name, a video phone beside the phone. Expert mode is the one the issue for each control describes; see the product stance in [CLAUDE.md](../CLAUDE.md).
+
 ## Value encoding
 
 Every value is a `String`, regardless of field type:
@@ -66,7 +78,8 @@ Every value is a `String`, regardless of field type:
 | `text` / `password` / `multiline` | the controller's text | `''` |
 | `dropdown` | the selected option string | `options.first` |
 | `checkbox` | `'true'` / `'false'` | `'false'` |
-| `group` | the number of entries, with each entry's parts under `<group>.<i>.<part>` and its kind under `<group>.<i>.kind` | `'0'` |
+| `group` | the number of entries, with each entry's parts under `<group>.<i>.<part>` and its kind under `<group>.<i>.kind`; several kinds comma-joined (`WORK,VOICE`) | `'0'` |
+| `date` | `YYYY-MM-DD`, typed or from the calendar button; the format writes it in its spec's own form | `''` |
 
 Read a group back with `QrEntries.read(values, group)`, which returns each entry as its parts by id plus `kind`, empty where a key is missing. Skip an entry whose parts are all empty: an *Add* pressed and left blank should not put an empty line in the payload.
 
@@ -99,9 +112,12 @@ A claim does not promise the form can hold everything. `unsupported` lists, name
 
 [importPayload](../lib/formats/import.dart) asks the formats in registry order, Text excluded, and the first to claim the payload decides. The payload opens in that format only when the form reproduces it exactly, which takes all of:
 
-- `buildQrString` rebuilds the identical payload from the values `parse` read,
-- `unsupported` is empty, and
+- `buildQrString` rebuilds the identical payload from the values `parse` read, as the current mode applies them,
+- `unsupported` is empty,
+- in beginner mode, nothing read is something only expert mode writes (`QrForm.expertOnly`), and
 - no validator rejects a value that was read, since a form that opens with an error is no use for editing and holds the QR code back.
+
+`parse` reads everything expert mode's form can hold into its fields, so `unsupported` is only what neither mode has a place for. In beginner mode, what only expert mode holds goes on the offer as `expertOnly`, and the notice says that expert mode has fields for it.
 
 Otherwise it opens in Text, byte for byte, with the claiming format as an offer the user can take. Text is the fallback because it is the only form that cannot change a payload: a scanned code is rarely Qrious's own, and quietly rewriting it, by reordering a Wi-Fi code's keys or dropping a `NOTE`, would make a different code. Content that loses nothing but is laid out differently falls under the same rule, because the rebuilt payload is a different code. The helpers `parse` implementations share (prefix matching, unescaping, splitting) are in [lib/formats/parsing.dart](../lib/formats/parsing.dart).
 

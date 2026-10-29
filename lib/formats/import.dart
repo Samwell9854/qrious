@@ -18,6 +18,10 @@
 /// Text, not the closest format, is the fallback because it is the only form that
 /// cannot change a payload: a scanned code is rarely ours, and quietly rewriting it
 /// (reordering Wi-Fi keys, dropping an `ORG`) would be a different code.
+///
+/// The form is the one the current mode shows. In beginner mode, a payload that needs
+/// an expert field or kind (a MeCard `NOTE`, a phone typed `WORK,VOICE`) is not
+/// reproduced, so it lands in Text, and the offer names what expert mode would add.
 library;
 
 import '../models/qr_field.dart';
@@ -41,7 +45,13 @@ class QrImportResult {
 
 /// A format that recognised a payload but cannot reproduce it exactly.
 class QrImportOffer {
-  const QrImportOffer(this.format, this.values, this.unsupported, this.invalid);
+  const QrImportOffer(
+    this.format,
+    this.values,
+    this.unsupported,
+    this.invalid, [
+    this.expertOnly = const [],
+  ]);
 
   final QrFormat format;
 
@@ -53,11 +63,19 @@ class QrImportOffer {
 
   /// `<field label>: <validator message>` for each value the form would reject.
   final List<String> invalid;
+
+  /// What only expert mode's form holds, named as [QrForm.expertOnly] names it. Empty
+  /// in expert mode.
+  final List<String> expertOnly;
 }
 
 /// Decides where [payload] lands among [formats]; see the library comment. [formats]
 /// must hold a [TextFormat].
-QrImportResult importPayload(String payload, [List<QrFormat>? formats]) {
+QrImportResult importPayload(
+  String payload, {
+  List<QrFormat>? formats,
+  bool expert = false,
+}) {
   // Null rather than `= qrFormats`: the registry is final, not const, and a default
   // value has to be const.
   formats ??= qrFormats;
@@ -70,15 +88,30 @@ QrImportResult importPayload(String payload, [List<QrFormat>? formats]) {
     if (parsed == null) continue;
 
     final invalid = _invalid(format, parsed.values);
+    final expertOnly = expert
+        ? const <String>[]
+        : QrForm.expertOnly(format.fields, parsed.values);
+    final applied = QrForm.applied(
+      format.fields,
+      parsed.values,
+      expert: expert,
+    );
     final faithful =
         parsed.unsupported.isEmpty &&
         invalid.isEmpty &&
-        format.buildQrString(parsed.values) == payload;
+        expertOnly.isEmpty &&
+        format.buildQrString(applied) == payload;
     if (faithful) return QrImportResult(format, parsed.values);
     return QrImportResult(
       text,
       textValues,
-      QrImportOffer(format, parsed.values, parsed.unsupported, invalid),
+      QrImportOffer(
+        format,
+        parsed.values,
+        parsed.unsupported,
+        invalid,
+        expertOnly,
+      ),
     );
   }
   return QrImportResult(text, textValues);

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart' show InputTooLongException;
 import '../formats/import.dart';
 import '../formats/registry.dart';
+import '../formats/validators.dart';
 import '../file_drop.dart';
 import '../full_screen.dart';
 import '../pixel_size.dart';
@@ -447,10 +448,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       case []:
         _say('No QR code found in this image.');
       case [final only]:
-        _applyImport(importPayload(only));
+        _applyImport(importPayload(only, expert: _expert));
       default:
         final chosen = await _chooseCode(payloads);
-        if (chosen != null && mounted) _applyImport(importPayload(chosen));
+        if (chosen != null && mounted) {
+          _applyImport(importPayload(chosen, expert: _expert));
+        }
     }
   }
 
@@ -481,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildCodeChoice(BuildContext context, String payload) {
-    final result = importPayload(payload);
+    final result = importPayload(payload, expert: _expert);
     // The format the code is meant for, even when it opens as text.
     final format = result.offer?.format ?? result.format;
     return ListTile(
@@ -584,7 +587,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  String get _qrString => _selectedFormat.buildQrString(_values);
+  /// The payload as the current mode writes it: what the mode does not show is kept
+  /// in `_values` but left out here.
+  String get _qrString => _selectedFormat.buildQrString(
+    QrForm.applied(_selectedFormat.fields, _values, expert: _expert),
+  );
+
+  /// The current format's fields that this mode shows with these values.
+  List<QrField> get _shownFields =>
+      QrForm.shown(_selectedFormat.fields, _values, expert: _expert);
 
   /// The message to show under [field], or null when there is nothing to say.
   ///
@@ -614,7 +625,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   bool get _isReady {
-    for (final field in _selectedFormat.fields) {
+    for (final field in _shownFields) {
       if (field.type == QrFieldType.group) {
         for (var i = 0; i < QrEntries.count(_values, field.id); i++) {
           for (final part in field.parts!) {
@@ -843,9 +854,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     // the first field's would otherwise be clipped at the top.
                     padding: const EdgeInsets.only(top: 12),
                     child: Column(
-                      children: _selectedFormat.fields
-                          .map(_buildField)
-                          .toList(),
+                      children: _shownFields.map(_buildField).toList(),
                     ),
                   ),
                 ),
@@ -870,7 +879,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _buildFormatRow(),
           const SizedBox(height: 20),
           if (_offer case final offer?) _buildImportNotice(offer),
-          ..._selectedFormat.fields.map(_buildField),
+          ..._shownFields.map(_buildField),
           const SizedBox(height: 8),
           _buildQrPanel(qrSize: qrSize),
         ],
@@ -884,9 +893,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final name = offer.format.name;
     final reasons = [
       if (offer.unsupported.isNotEmpty) 'hold ${offer.unsupported.join(', ')}',
+      if (offer.expertOnly.isNotEmpty)
+        'hold ${offer.expertOnly.join(', ')} in beginner mode',
       for (final entry in offer.invalid) 'accept $entry',
       // Neither lost nor rejected: the form's own layout is what differs.
-      if (offer.unsupported.isEmpty && offer.invalid.isEmpty)
+      if (offer.unsupported.isEmpty &&
+          offer.expertOnly.isEmpty &&
+          offer.invalid.isEmpty)
         'write it the same way — it lays the same content out differently, '
             'which makes a different code',
     ];
@@ -915,7 +928,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     const SizedBox(height: 4),
                     Text(
                       'Opened as plain text, which keeps its text exactly as scanned, because '
-                      'the $name form cannot ${reasons.join('; ')}.',
+                      'the $name form cannot ${reasons.join('; ')}.'
+                      '${offer.expertOnly.isEmpty ? '' : ' Expert mode, in Settings, has fields for them.'}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colors.onSecondaryContainer,
                       ),
@@ -1129,6 +1143,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           obscureText: !_revealed.contains(field.id),
         ),
+        QrFieldType.date => TextFormField(
+          controller: _controllers[field.id],
+          decoration: InputDecoration(
+            labelText: field.label,
+            hintText: field.hint ?? 'YYYY-MM-DD',
+            border: const OutlineInputBorder(),
+            errorText: error,
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.calendar_month_outlined),
+              tooltip: 'Pick a date',
+              onPressed: () => _pickDate(field),
+            ),
+          ),
+        ),
         _ => TextFormField(
           controller: _controllers[field.id],
           decoration: InputDecoration(
@@ -1141,6 +1169,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       },
     );
+  }
+
+  /// Opens a calendar on [field]'s date, or today, and writes the pick back as
+  /// `YYYY-MM-DD`, which is how a date field holds its value.
+  Future<void> _pickDate(QrField field) async {
+    final controller = _controllers[field.id]!;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: parseIsoDate(controller.text) ?? DateTime.now(),
+      firstDate: DateTime(1),
+      lastDate: DateTime(9999, 12, 31),
+    );
+    if (picked != null) controller.text = formatIsoDate(picked);
   }
 
   /// A group's entries, then a button to add another. Nothing but the button
@@ -1172,25 +1213,72 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// The kind of entry [index] of [group], falling back to the first.
+  /// The kind of entry [index] of [group] as this mode shows it, falling back to the
+  /// first. Several kinds at once, in expert mode, read as one: their words joined,
+  /// under the first one's icon.
   QrKind _kindOf(QrField group, int index) {
-    final value = _values[QrEntries.kind(group.id, index)];
-    return group.kinds!.firstWhere(
-      (k) => k.value == value,
-      orElse: () => group.kinds!.first,
+    var value = _values[QrEntries.kind(group.id, index)] ?? '';
+    if (!_expert) value = QrForm.beginnerKind(group, value);
+    final offered = group.kindsFor(expert: _expert);
+    QrKind? find(String v) => offered.where((k) => k.value == v).firstOrNull;
+    if (find(value) case final kind?) return kind;
+    final parts = [for (final v in value.split(',')) ?find(v)];
+    if (parts.isEmpty) return group.kinds!.first;
+    return QrKind(
+      value,
+      parts.map((k) => k.label).join(', '),
+      parts.first.icon,
     );
   }
 
   /// A menu of [group]'s kinds, each shown as its icon and its word, as the
-  /// format picker shows formats. [child] is what opens it.
+  /// format picker shows formats. [child] is what opens it. In expert mode, a group
+  /// whose entries can be several kinds gets a checklist that stays open instead.
   Widget _kindMenu(QrField group, int index, Widget child) {
+    final key = QrEntries.kind(group.id, index);
+    if (_expert && group.multipleKinds) {
+      final chosen = (_values[key] ?? '').split(',')..remove('');
+      return MenuAnchor(
+        menuChildren: [
+          for (final kind in group.kindsFor(expert: true))
+            if (kind.value.isNotEmpty)
+              CheckboxMenuButton(
+                value: chosen.contains(kind.value),
+                closeOnActivate: false,
+                // Toggled in place, so the order the kinds were picked or read in
+                // is the order they are written in.
+                onChanged: (on) => setState(() {
+                  if (on == true) {
+                    chosen.add(kind.value);
+                  } else {
+                    chosen.remove(kind.value);
+                  }
+                  _values[key] = chosen.join(',');
+                }),
+                child: Row(
+                  children: [
+                    Icon(kind.icon, size: 20),
+                    const SizedBox(width: 12),
+                    Text(kind.label),
+                  ],
+                ),
+              ),
+        ],
+        builder: (context, menu, _) => Tooltip(
+          message: '${group.label} types',
+          child: InkWell(
+            onTap: () => menu.isOpen ? menu.close() : menu.open(),
+            child: child,
+          ),
+        ),
+      );
+    }
     return PopupMenuButton<String>(
       tooltip: '${group.label} type',
       initialValue: _kindOf(group, index).value,
-      onSelected: (value) =>
-          setState(() => _values[QrEntries.kind(group.id, index)] = value),
+      onSelected: (value) => setState(() => _values[key] = value),
       itemBuilder: (_) => [
-        for (final kind in group.kinds!)
+        for (final kind in group.kindsFor(expert: _expert))
           PopupMenuItem(
             value: kind.value,
             child: Row(

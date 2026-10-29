@@ -101,7 +101,10 @@ void main() {
     });
 
     test('finds the Text format by type, wherever it is in the list', () {
-      final result = importPayload('hello', [TextFormat(), WifiFormat()]);
+      final result = importPayload(
+        'hello',
+        formats: [TextFormat(), WifiFormat()],
+      );
       expect(result.format, isA<TextFormat>());
       expect(result.values[TextFormat.fieldId], 'hello');
     });

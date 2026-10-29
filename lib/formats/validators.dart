@@ -64,3 +64,27 @@ String? _validatePhone(String value, RegExp allowed, String message) {
 /// non-Latin script runs out sooner than it looks like it should.
 String? validateSsid(String value) =>
     utf8.encode(value).length > 32 ? 'At most 32 bytes long' : null;
+
+/// A date field's value, `YYYY-MM-DD`, as a date; null when it is not a real one.
+DateTime? parseIsoDate(String value) {
+  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value.trim());
+  if (match == null) return null;
+  final [year, month, day] = [
+    for (var i = 1; i <= 3; i++) int.parse(match.group(i)!),
+  ];
+  final date = DateTime(year, month, day);
+  // DateTime rolls an impossible day over into the next month; a real one survives.
+  return date.year == year && date.month == month && date.day == day
+      ? date
+      : null;
+}
+
+/// [date] as a date field holds it, `YYYY-MM-DD`.
+String formatIsoDate(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
+/// A date typed as `YYYY-MM-DD` that exists, for a [QrFieldType.date] field.
+String? validateDate(String value) =>
+    parseIsoDate(value) == null ? 'Use a real date, like 1985-04-12' : null;
