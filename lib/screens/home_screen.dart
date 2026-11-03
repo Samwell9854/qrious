@@ -1529,31 +1529,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   /// What the preview is showing: in the beginner's terms, or with the spec's details
   /// in expert mode, and what had to give when the code outgrew a choice.
-  String _describe(EncodedQr qr) {
+  ///
+  /// Each part is paired with whether its choice differs from the one in settings,
+  /// which the caption marks, so a choice made for this code alone stands out. No
+  /// part says Auto: each states what the code is, whoever chose it.
+  List<(String, bool)> _describe(EncodedQr qr) {
     final level = qr.errorCorrection;
-    final chosen = _errorCorrection == ErrorCorrection.auto ? 'Auto: ' : '';
     final layout = _layoutFor(qr);
     final side = layout.sideFor(qr);
+    final levelChanged = _errorCorrection != _settings.errorCorrection;
+    final notes = [for (final note in _fallbacks(qr, layout)) (note, false)];
     if (!_expert) {
       return [
-        '$chosen${level.label} error correction, survives '
-            '${level.recoveryPercent}% damage',
-        '$side × $side px',
-        ..._fallbacks(qr, layout),
-      ].join(' · ');
+        (
+          '${level.label} error correction, survives '
+              '${level.recoveryPercent}% damage',
+          levelChanged,
+        ),
+        ('$side × $side px', _imageSize != _settings.imageSize),
+        ...notes,
+      ];
     }
     final modes = {
       for (final segment in qr.segments) segment.mode.label.toLowerCase(),
     }.join(' + ');
     final n = qr.moduleCount;
     return [
-      '$chosen${level.choiceLabel(expert: true)}',
-      'version ${qr.version} ($n×$n)',
-      'mask ${qr.mask}',
-      if (modes.isNotEmpty) modes,
-      '$side × $side px',
-      ..._fallbacks(qr, layout),
-    ].join(' · ');
+      (level.choiceLabel(expert: true), levelChanged),
+      ('version ${qr.version} ($n×$n)', _version != _settings.version),
+      ('mask ${qr.mask}', _mask != _settings.mask),
+      if (modes.isNotEmpty) (modes, _mode != _settings.encodingMode),
+      ('quiet zone ${layout.quietZone}', _quietZone != _settings.quietZone),
+      ('$side × $side px', _pixelsPerModule != _settings.expertPixelsPerModule),
+      ...notes,
+    ];
   }
 
   /// The choices this code could not take as they are, each with what it got instead.
@@ -1818,7 +1827,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final small = Theme.of(context).textTheme.bodySmall;
     return [
       const SizedBox(height: 8),
-      Text(_describe(qr), textAlign: TextAlign.center, style: small),
+      Text.rich(
+        TextSpan(
+          children: [
+            for (final (i, (text, changed)) in _describe(qr).indexed) ...[
+              if (i > 0) const TextSpan(text: ' · '),
+              TextSpan(
+                text: text,
+                // Bold as well as coloured, so the mark does not rest on colour.
+                style: changed
+                    ? TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      )
+                    : null,
+              ),
+            ],
+          ],
+        ),
+        textAlign: TextAlign.center,
+        style: small,
+      ),
       if (dense) ...[
         const SizedBox(height: 4),
         Text(

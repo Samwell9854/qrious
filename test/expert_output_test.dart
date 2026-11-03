@@ -105,8 +105,9 @@ void main() {
     final side = (n + 8) * 8;
     expect(
       find.text(
-        'Auto: ${qr.errorCorrection.choiceLabel(expert: true)} · '
+        '${qr.errorCorrection.choiceLabel(expert: true)} · '
         'version ${qr.version} ($n×$n) · mask ${qr.mask} · $modes · '
+        'quiet zone 4 · '
         '$side × $side px',
       ),
       findsOneWidget,
@@ -342,5 +343,48 @@ void main() {
     await tester.pumpAndSettle();
     expect(enabled(tester, 'Medium (15%) · too much data'), isFalse);
     expect(enabled(tester, 'Low (7%)'), isTrue);
+  });
+
+  /// The caption's parts that stand out, as differing from settings.
+  List<String> marked(WidgetTester tester) {
+    final caption = tester.widget<Text>(find.textContaining(' px').first);
+    return [
+      for (final span
+          in (caption.textSpan! as TextSpan).children!.cast<TextSpan>())
+        if (span.style?.fontWeight == FontWeight.bold) span.text!,
+    ];
+  }
+
+  testWidgets('the caption marks only what differs from settings', (
+    tester,
+  ) async {
+    await pumpExpert(
+      tester,
+      settings: const Settings(
+        expertMode: true,
+        errorCorrection: ErrorCorrection.highest,
+      ),
+    );
+    expect(find.textContaining('Auto'), findsWidgets);
+    expect(find.textContaining('Auto:'), findsNothing);
+    expect(marked(tester), isEmpty);
+
+    await pick(tester, 'Mask', '6');
+    await type(tester, 'Quiet zone (modules)', '2');
+    expect(marked(tester), ['mask 6', 'quiet zone 2']);
+
+    // Back to what settings say: nothing stands out again.
+    await pick(tester, 'Mask', 'Auto');
+    await type(tester, 'Quiet zone (modules)', '4');
+    expect(marked(tester), isEmpty);
+  });
+
+  testWidgets('beginner mode marks a level or size changed from settings', (
+    tester,
+  ) async {
+    await pumpExpert(tester, settings: const Settings());
+    expect(marked(tester), isEmpty);
+    await pick(tester, 'Image size', 'Large');
+    expect(marked(tester), [contains(' px')]);
   });
 }

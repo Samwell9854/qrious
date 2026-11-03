@@ -63,7 +63,7 @@ void main() {
     final side = ImageSize.medium.layout.sideFor(qr);
     expect(
       find.text(
-        'Auto: ${qr.errorCorrection.label} error correction, survives '
+        '${qr.errorCorrection.label} error correction, survives '
         '${qr.errorCorrection.recoveryPercent}% damage · $side × $side px',
       ),
       findsOneWidget,
