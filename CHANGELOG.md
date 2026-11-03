@@ -2,7 +2,7 @@
 
 What each release changes, for the people using the app. Each section becomes that version's GitHub release notes, so it is written before the release is tagged. Earlier releases predate this file.
 
-## 2026.10.6
+## 2026.11.0
 
 Expert mode: everything the QR spec allows, from the symbol version to every vCard phone type. Beginner codes also get smaller.
 
