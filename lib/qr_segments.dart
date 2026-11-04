@@ -174,10 +174,7 @@ int _alphanumericBits(int chars) => chars ~/ 2 * 11 + chars % 2 * 6;
 int _byteBits(int bytes) => bytes * 8;
 
 /// Data codewords per version (index 0 is version 1) at L, M, Q and H, from
-/// ISO/IEC 18004 Table 7, except version 15 at H: the `qr` package's table drops that
-/// entry's second block group, so it holds 132 where the standard has 223, and the
-/// symbol it draws there does not decode. 132 is below version 14's 197, so sizing
-/// never lands on it; see [brokenInQrPackage] for a version chosen by hand.
+/// ISO/IEC 18004 Table 7.
 const _dataCodewords = <List<int>>[
   // L
   [
@@ -203,15 +200,11 @@ const _dataCodewords = <List<int>>[
   // H
   [
     9, 16, 26, 36, 46, 60, 66, 86, 100, 122, //
-    140, 158, 180, 197, 132, 253, 283, 313, 341, 385,
+    140, 158, 180, 197, 223, 253, 283, 313, 341, 385,
     406, 442, 464, 514, 538, 596, 628, 661, 701, 745,
     793, 845, 901, 961, 986, 1054, 1096, 1142, 1222, 1276,
   ],
 ];
-
-/// Whether the `qr` package draws an unreadable symbol at [version] and [qrLevel].
-bool brokenInQrPackage(int version, int qrLevel) =>
-    version == 15 && qrLevel == QrErrorCorrectLevel.H;
 
 /// Data bits a symbol of [version] holds at error-correction level [qrLevel]
 /// (a `QrErrorCorrectLevel` constant): data codewords × 8.

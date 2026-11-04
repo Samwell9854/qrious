@@ -168,13 +168,18 @@ void main() {
       },
     );
 
-    test('version 15 at H is never used, as the qr package draws it wrong', () {
-      expect(canEncode(data, ErrorCorrection.highest, version: 15), isFalse);
-      expect(encodeQr(data, ErrorCorrection.highest, version: 15).version, 16);
-      final auto = encodeQr(data, ErrorCorrection.auto, version: 15);
-      expect(auto.version, 15);
-      expect(auto.errorCorrection, ErrorCorrection.high);
-      expect(canEncode(data, ErrorCorrection.auto, version: 15), isTrue);
+    test('version 15 at H holds what the spec says and reads back', () {
+      expect(dataCapacityBits(15, QrErrorCorrectLevel.H), 223 * 8);
+      final qr = encodeQr(data, ErrorCorrection.highest, version: 15);
+      expect(qr.version, 15);
+      expect(qr.errorCorrection, ErrorCorrection.highest);
+      expect(readBack(qr), [data]);
+      // Nearly full, so every block carries data: 4 + 11 + 160 × 11 = 1775 of
+      // 1784 bits, more than version 14 holds, so it is also the size chosen.
+      final full = 'A' * 320;
+      final big = encodeQr(full, ErrorCorrection.highest);
+      expect(big.version, 15);
+      expect(readBack(big), [full]);
     });
 
     test('every mask is drawn as asked and reads back', () {

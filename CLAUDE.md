@@ -4,7 +4,7 @@ Flutter app that generates QR codes from structured input. Pick a format (Wi-Fi,
 
 - Flutter 3.47 stable / Dart SDK `^3.11.5`
 - The only platform scaffolded so far is **Linux** (`linux/`). iOS is on indefinite hold — see Known rough edges.
-- Dependencies: `qr_flutter` (rendering), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels). Linux build and runtime also need `librsvg` (`librsvg2-dev` to build), which the runner uses to draw SVG files before decoding, and GStreamer (`libgstreamer1.0-dev` and `libgstreamer-plugins-base1.0-dev` to build), which the runner uses to capture the webcam; `v4l2src` from gst-plugins-good is needed only at run time, and only for scanning.
+- Dependencies: `qr_flutter` (rendering), `qr` (the encoder under it, at least 3.0.3, the first to draw version 15 at H correctly), `file_selector` (the save dialog), `package_info_plus` (reads the running build's version), `pub_semver` (parsing), `zxing2` (decoding a QR code from pixels, pure Dart), `image` (decoding the image file to pixels). Linux build and runtime also need `librsvg` (`librsvg2-dev` to build), which the runner uses to draw SVG files before decoding, and GStreamer (`libgstreamer1.0-dev` and `libgstreamer-plugins-base1.0-dev` to build), which the runner uses to capture the webcam; `v4l2src` from gst-plugins-good is needed only at run time, and only for scanning.
 
 ## Commands
 

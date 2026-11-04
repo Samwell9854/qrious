@@ -2,6 +2,18 @@
 
 What each release changes, for the people using the app. Each section becomes that version's GitHub release notes, so it is written before the release is tagged. Earlier releases predate this file.
 
+## 2026.11.1
+
+Version 15 at the highest error correction is back in Expert mode.
+
+### Expert mode
+
+- **Version 15 at error correction H** is offered again in Expert mode: the QR library Qrious uses now draws it correctly. ([#23](https://github.com/Samwell9854/qrious/issues/23))
+
+### Issues
+
+Fixes #23.
+
 ## 2026.11.0
 
 Expert mode: everything the QR spec allows, from the symbol version to every vCard phone type. Beginner codes also get smaller.

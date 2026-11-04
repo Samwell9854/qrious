@@ -191,8 +191,7 @@ ErrorCorrection _resolveAuto(String data, EncodingMode? mode, int from) {
     if (segments == null || version == 10 || version == 27) {
       segments = _segments(data, version, mode);
     }
-    if (_room(level, version) case final room?
-        when bitLength(segments, version) <= room) {
+    if (bitLength(segments, version) <= _room(level, version)) {
       return (version, segments);
     }
   }
@@ -207,16 +206,14 @@ List<QrSegment>? _holds(
   int version,
 ) {
   final segments = _segments(data, version, mode);
-  final room = _room(level, version);
-  return room != null && bitLength(segments, version) <= room ? segments : null;
+  return bitLength(segments, version) <= _room(level, version)
+      ? segments
+      : null;
 }
 
-/// The data bits [version] holds at [level], or null where the `qr` package cannot
-/// draw a readable symbol, which is then never chosen.
-int? _room(ErrorCorrection level, int version) =>
-    brokenInQrPackage(version, level.qrLevel!)
-    ? null
-    : dataCapacityBits(version, level.qrLevel!);
+/// The data bits [version] holds at [level].
+int _room(ErrorCorrection level, int version) =>
+    dataCapacityBits(version, level.qrLevel!);
 
 /// [segmentsFor], remembered for the last payload. The split depends only on the
 /// payload, the mode and which of the three count-field widths the version has, and

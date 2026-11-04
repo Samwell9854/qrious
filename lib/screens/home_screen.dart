@@ -1581,9 +1581,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           'using ${qr.errorCorrection.label}',
     if ((_expert ? _version : null) case final version?
         when qr.version != version)
-      version == 15 && qr.errorCorrection == ErrorCorrection.highest
-          ? 'version 15 cannot be drawn at H; using ${qr.version}'
-          : 'version $version is too small for this text; using ${qr.version}',
+      'version $version is too small for this text; using ${qr.version}',
     if ((_expert ? _mode : null) case final mode? when qr.mode != mode)
       '${mode.label.toLowerCase()} cannot write this text; '
           'using the automatic split',
@@ -1617,9 +1615,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     String? levelUnavailable(ErrorCorrection l) {
       if (data == null || l == ErrorCorrection.auto) return null;
       if (canEncode(data, l, version: version, mode: mode)) return null;
-      if (version == 15 && l == ErrorCorrection.highest) {
-        return 'not at version 15';
-      }
       return tooMuch();
     }
 
@@ -1728,9 +1723,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   canEncode(data, level, version: v, mode: mode)) {
                 return null;
               }
-              return v == 15 && level == ErrorCorrection.highest
-                  ? 'not at H'
-                  : 'too small';
+              return 'too small';
             },
             onChanged: (v) => setState(() => _version = v),
           ),

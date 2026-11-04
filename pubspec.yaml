@@ -11,7 +11,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # --build-name and --build-number. iOS rejects a prerelease label in
 # CFBundleShortVersionString, so an iOS release build needs --build-name without
 # the -alpha.N part; tool/new_release.dart prints the exact command.
-version: 2026.11.0+52
+version: 2026.11.1-preview.1+53
 
 environment:
   sdk: ^3.11.5
@@ -30,6 +30,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   qr_flutter: ^4.1.0
+  # Through qr_flutter, which re-exports it. Named for its floor: 3.0.3 draws version
+  # 15 at error correction H correctly, which earlier releases did not.
+  qr: ^3.0.3
   package_info_plus: ^10.2.1
   pub_semver: ^2.2.1
   file_selector: ^1.1.0
