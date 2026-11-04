@@ -14,7 +14,7 @@ Expert mode: everything the QR spec allows, from the symbol version to every vCa
 - **The quiet zone**, the white margin around the code, from 0 modules up. The spec's 4 is the default, and the preview, full screen, saved files and copied images all use it.
 - **The version** (1 to 40, the code's size), **the mask** (0 to 7) and **the encoding mode** (numeric, alphanumeric or byte for the whole text), each Auto by default.
 - **Nothing impossible is offered.** A choice the text cannot take is greyed out with the reason, such as *Numeric · digits only*. When the text outgrows a choice you made, the code uses the nearest that fits and says so under the code, and your choice comes back once the text is short enough.
-- **The caption under the code** shows the version and its size, the mask, the modes used and the quiet zone. It no longer says *Auto*; instead, in either mode, whatever you changed from Settings for this code is highlighted.
+- **The caption under the code** shows the version and its size, the mask, the modes used and the quiet zone. It no longer says *Auto*; instead, in either mode, whatever you changed from Settings for this code is highlighted. A **Reset** link beside it puts those choices back to their settings.
 - Each of these has a launch default in Settings, shown in Expert mode.
 - Version 15 at H is greyed out: the QR library Qrious uses draws that combination wrong, and it has been reported.
 

@@ -43,12 +43,17 @@ class _NumberFieldState extends State<NumberField> {
     });
   }
 
-  /// A value changed from outside, such as a default picked in settings, shows here
-  /// unless the field is being typed in.
+  /// A value changed from outside, such as a default picked in settings or a reset,
+  /// shows here. While the field is typed in, only a change that did not come from
+  /// the typing, which always leaves the text and the value agreeing.
   @override
   void didUpdateWidget(NumberField old) {
     super.didUpdateWidget(old);
-    if (!_focus.hasFocus) _show(widget.value);
+    final typed = int.tryParse(_controller.text);
+    if (!_focus.hasFocus ||
+        (widget.value != old.value && typed != widget.value)) {
+      _show(widget.value);
+    }
   }
 
   void _show(int value) {

@@ -29,6 +29,7 @@ import '../widgets/auto_dropdown.dart';
 import '../widgets/camera_scanner.dart';
 import '../widgets/fill_then_scroll.dart';
 import '../widgets/full_screen_qr.dart';
+import '../widgets/iso_date_picker.dart';
 import '../widgets/number_field.dart';
 import '../widgets/qr_symbol.dart';
 import '../widgets/settings_view.dart';
@@ -1175,7 +1176,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// `YYYY-MM-DD`, which is how a date field holds its value.
   Future<void> _pickDate(QrField field) async {
     final controller = _controllers[field.id]!;
-    final picked = await showDatePicker(
+    final picked = await showIsoDatePicker(
       context: context,
       initialDate: parseIsoDate(controller.text) ?? DateTime.now(),
       firstDate: DateTime(1),
@@ -1579,10 +1580,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if ((_expert ? _mode : null) case final mode? when qr.mode != mode)
       '${mode.label.toLowerCase()} cannot write this text; '
           'using the automatic split',
-    if (layout.quietZone != _quietZone)
-      'quiet zone $_quietZone is too wide for this code; using ${layout.quietZone}',
-    if (layout.pixelsPerModule != _pixelsPerModule)
-      '$_pixelsPerModule px per module is too large for this code; '
+    if (_chosenLayout.quietZone case final zone when layout.quietZone != zone)
+      'quiet zone $zone is too wide for this code; using ${layout.quietZone}',
+    if (_chosenLayout.pixelsPerModule case final unit
+        when layout.pixelsPerModule != unit)
+      '$unit px per module is too large for this code; '
           'using ${layout.pixelsPerModule}',
   ];
 
@@ -1766,6 +1768,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// Whether a choice on show differs from its default in settings.
+  bool get _outputChanged => _expert
+      ? _errorCorrection != _settings.errorCorrection ||
+            _pixelsPerModule != _settings.expertPixelsPerModule ||
+            _quietZone != _settings.quietZone ||
+            _version != _settings.version ||
+            _mask != _settings.mask ||
+            _mode != _settings.encodingMode
+      : _errorCorrection != _settings.errorCorrection ||
+            _imageSize != _settings.imageSize;
+
+  /// Puts the choices on show back to their defaults in settings. Only those of the
+  /// current mode: the other mode's are kept, as switching modes keeps them.
+  void _resetOutput() => setState(() {
+    _errorCorrection = _settings.errorCorrection;
+    if (_expert) {
+      _pixelsPerModule = _settings.expertPixelsPerModule;
+      _quietZone = _settings.quietZone;
+      _version = _settings.version;
+      _mask = _settings.mask;
+      _mode = _settings.encodingMode;
+    } else {
+      _imageSize = _settings.imageSize;
+    }
+  });
+
   Widget _optionRow(Widget left, Widget right) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -1841,6 +1869,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         fontWeight: FontWeight.bold,
                       )
                     : null,
+              ),
+            ],
+            // Beside the marks it undoes, and only while there are any; in the
+            // caption rather than under the controls, where it would take height
+            // from the code.
+            if (_outputChanged) ...[
+              const TextSpan(text: ' · '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Tooltip(
+                  message: 'Put every choice back to its setting',
+                  child: TextButton(
+                    onPressed: _resetOutput,
+                    style: TextButton.styleFrom(
+                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      textStyle: small,
+                    ),
+                    child: const Text('Reset'),
+                  ),
+                ),
               ),
             ],
           ],

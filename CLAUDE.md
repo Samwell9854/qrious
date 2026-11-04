@@ -32,6 +32,7 @@ git config core.hooksPath tool/hooks       # once per clone: auto-bump the versi
 | [lib/qr_encoding.dart](lib/qr_encoding.dart), [lib/qr_segments.dart](lib/qr_segments.dart) | Encodes a payload at the chosen error correction, including how Auto picks a level; splitting it into numeric, alphanumeric and byte runs, and the capacity each version holds |
 | [lib/qr_png.dart](lib/qr_png.dart), [lib/qr_svg.dart](lib/qr_svg.dart) | Render the encoded code to a PNG or an SVG for saving — black on white, with a quiet zone, sized in pixels per module; the PNG is 1-bit, written in Dart, at most `maxImageSide` |
 | [lib/widgets/number_field.dart](lib/widgets/number_field.dart) | A whole number typed within a range, refusing a keystroke that would leave it |
+| [lib/widgets/iso_date_picker.dart](lib/widgets/iso_date_picker.dart) | The calendar for a date field, typed as `YYYY-MM-DD` whatever the locale |
 | [lib/widgets/auto_dropdown.dart](lib/widgets/auto_dropdown.dart) | A dropdown with Auto in front, greying out with a reason what the code cannot take |
 | [lib/qr_export.dart](lib/qr_export.dart) | The file types Save offers, their rendering and extensions, and the suggested filename |
 | [lib/save_location.dart](lib/save_location.dart) | The save dialog, behind a typedef the screen can stub in tests |

@@ -79,7 +79,7 @@ Every value is a `String`, regardless of field type:
 | `dropdown` | the selected option string | `options.first` |
 | `checkbox` | `'true'` / `'false'` | `'false'` |
 | `group` | the number of entries, with each entry's parts under `<group>.<i>.<part>` and its kind under `<group>.<i>.kind`; several kinds comma-joined (`WORK,VOICE`) | `'0'` |
-| `date` | `YYYY-MM-DD`, typed or from the calendar button; the format writes it in its spec's own form | `''` |
+| `date` | `YYYY-MM-DD`, typed or from the calendar button (whose own typed entry takes the same form, whatever the locale); the format writes it in its spec's own form | `''` |
 
 Read a group back with `QrEntries.read(values, group)`, which returns each entry as its parts by id plus `kind`, empty where a key is missing. Skip an entry whose parts are all empty: an *Add* pressed and left blank should not put an empty line in the payload.
 

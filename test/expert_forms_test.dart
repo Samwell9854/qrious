@@ -145,6 +145,18 @@ void main() {
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     expect(payload(tester), contains('BDAY:19900415;'));
+
+    // Typed in the calendar, the date reads as the field does.
+    await tester.tap(find.byTooltip('Pick a date'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('yyyy-mm-dd'), findsWidgets);
+    expect(find.text('1990-04-15'), findsWidgets);
+    await tester.enterText(find.byType(TextField).last, '2001-02-03');
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(payload(tester), contains('BDAY:20010203;'));
   });
 
   testWidgets('a Location takes altitude and uncertainty only in expert', (

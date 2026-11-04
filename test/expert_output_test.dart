@@ -350,7 +350,7 @@ void main() {
     final caption = tester.widget<Text>(find.textContaining(' px').first);
     return [
       for (final span
-          in (caption.textSpan! as TextSpan).children!.cast<TextSpan>())
+          in (caption.textSpan! as TextSpan).children!.whereType<TextSpan>())
         if (span.style?.fontWeight == FontWeight.bold) span.text!,
     ];
   }
@@ -386,5 +386,43 @@ void main() {
     expect(marked(tester), isEmpty);
     await pick(tester, 'Image size', 'Large');
     expect(marked(tester), [contains(' px')]);
+  });
+
+  testWidgets('Reset puts every choice on show back to settings', (
+    tester,
+  ) async {
+    await pumpExpert(
+      tester,
+      settings: const Settings(expertMode: true, pixelsPerModule: 5),
+    );
+    final reset = find.widgetWithText(TextButton, 'Reset');
+    expect(reset, findsNothing);
+
+    await pick(tester, 'Version', '10 (57×57)');
+    await pick(tester, 'Mask', '6');
+    await pick(tester, 'Encoding mode', 'Byte');
+    await type(tester, 'Pixels per module', '2');
+    await type(tester, 'Quiet zone (modules)', '1');
+    expect(reset, findsOneWidget);
+
+    await tester.ensureVisible(reset);
+    await tester.tap(reset);
+    await tester.pumpAndSettle();
+    expect(marked(tester), isEmpty);
+    expect(textOf(tester, 'Pixels per module'), '5');
+    expect(textOf(tester, 'Quiet zone (modules)'), '4');
+    expect(reset, findsNothing);
+  });
+
+  testWidgets('beginner mode reports no fallback from an expert size', (
+    tester,
+  ) async {
+    // The expert size is kept but not applied, so it has nothing to give way.
+    await pumpExpert(tester, settings: const Settings(pixelsPerModule: 4));
+    expect(find.textContaining('too large'), findsNothing);
+    await pick(tester, 'Image size', 'Small');
+    await tester.tap(find.widgetWithText(TextButton, 'Reset'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('${(n + 8) * 8} × ${(n + 8) * 8} px'), findsOne);
   });
 }
