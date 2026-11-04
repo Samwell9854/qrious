@@ -425,4 +425,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('${(n + 8) * 8} × ${(n + 8) * 8} px'), findsOne);
   });
+
+  testWidgets('the caption counts runs when a mode comes back', (tester) async {
+    await pumpExpert(tester);
+    await plainText(tester, 'ABCDE1b123');
+    expect(
+      find.textContaining('alphanumeric + byte + numeric · '),
+      findsOneWidget,
+    );
+    await plainText(tester, 'ABCDE1b1234567A');
+    expect(
+      find.textContaining('alphanumeric + byte + numeric (4 runs) · '),
+      findsOneWidget,
+    );
+  });
 }

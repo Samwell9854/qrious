@@ -72,8 +72,66 @@ void main() {
         'message': 'a:b;c,d e?&=',
       };
       final parsed = format.parse(format.buildQrString(values))!;
-      expect(parsed.values, values);
+      expect(parsed.values, {...values, 'apple': 'false'});
       expect(parsed.unsupported, isEmpty);
+    });
+
+    test("writes Apple's form only for several numbers when asked", () {
+      final two = {
+        ...uri,
+        'recipients': '1',
+        'recipients.0.number': '555 0001',
+        'message': 'hi there',
+      };
+      expect(format.buildQrString(two), startsWith('sms:+15550000000,'));
+      expect(
+        format.buildQrString({...two, 'apple': 'true'}),
+        'sms://open?addresses=+15550000000,5550001&body=hi%20there',
+      );
+      // One number opens everywhere in the standard form, so it keeps it.
+      expect(
+        format.buildQrString({...uri, 'apple': 'true'}),
+        'sms:+15550000000',
+      );
+    });
+
+    test("reads Apple's form back, with one slash or two", () {
+      for (final payload in [
+        'sms://open?addresses=+15550000000,5550001&body=hi%20there',
+        'SMS:/open?body=hi%20there&addresses=+15550000000,5550001',
+      ]) {
+        final parsed = format.parse(payload)!;
+        expect(parsed.values, {
+          'form': 'sms:',
+          'apple': 'true',
+          'phone': '+15550000000',
+          'recipients': '1',
+          'recipients.0.number': '5550001',
+          'message': 'hi there',
+        });
+        expect(parsed.unsupported, isEmpty);
+      }
+    });
+
+    test("Apple's choice is expert, shown only with sms:", () {
+      expect(
+        QrForm.shown(format.fields, {
+          'form': 'sms:',
+        }, expert: true).map((f) => f.id),
+        contains('apple'),
+      );
+      expect(
+        QrForm.shown(format.fields, {
+          'form': 'SMSTO:',
+        }, expert: true).map((f) => f.id),
+        isNot(contains('apple')),
+      );
+      expect(
+        QrForm.shown(format.fields, {
+          'form': 'sms:',
+        }, expert: false).map((f) => f.id),
+        isNot(contains('apple')),
+      );
     });
 
     test('lists query parameters other than body', () {
@@ -110,7 +168,12 @@ void main() {
     test('reads back what it builds, colons in the message included', () {
       final values = {'phone': '+15550000000', 'message': 'a:b;c,d\\e'};
       final parsed = format.parse(format.buildQrString(values))!;
-      expect(parsed.values, {...values, 'form': 'SMSTO:', 'recipients': '0'});
+      expect(parsed.values, {
+        ...values,
+        'form': 'SMSTO:',
+        'recipients': '0',
+        'apple': 'false',
+      });
       expect(parsed.unsupported, isEmpty);
     });
 
@@ -119,6 +182,7 @@ void main() {
         'form': 'SMSTO:',
         'phone': '555',
         'recipients': '0',
+        'apple': 'false',
         'message': '',
       });
     });

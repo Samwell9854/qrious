@@ -40,8 +40,23 @@ class SmsFormat extends QrFormat {
       validate: validateSmsNumber,
     ),
     _recipients,
+    QrField(
+      id: 'apple',
+      label: 'Write for Apple devices',
+      type: QrFieldType.checkbox,
+      hint:
+          'With several numbers, iPhone and Mac open all of them only this '
+          'way; Android then finds none',
+      expert: true,
+      showWhen: (field: 'form', value: smsUri),
+    ),
     QrField(id: 'message', label: 'Message', type: QrFieldType.multiline),
   ];
+
+  /// Apple's own way to give several recipients, which no spec defines. Messages on
+  /// iPhone opens only the first number of the standard comma list, and opens all of
+  /// them this way; Android reads `open` as the number and finds none.
+  static const _appleOpen = 'sms://open?addresses=';
 
   // Only `sms:` can carry more than one recipient.
   static const _recipients = QrField(
@@ -72,7 +87,9 @@ class SmsFormat extends QrFormat {
   ///
   /// Or, in expert mode, the `sms:` URI of RFC 5724: `sms:<number>[,<number>...]`
   /// with an optional `?body=` percent-encoded. A URI holds no spaces, so they are
-  /// left out of the numbers, and `#` would start a fragment, so it is encoded.
+  /// left out of the numbers, and `#` would start a fragment, so it is encoded. With
+  /// several numbers and Apple's form asked for, `sms://open?addresses=` instead; one
+  /// number needs no such form, and keeps the one every phone reads.
   @override
   String buildQrString(Map<String, String> values) {
     final phone = (values['phone'] ?? '').trim();
@@ -83,9 +100,12 @@ class SmsFormat extends QrFormat {
     final numbers = [
       phone,
       for (final entry in QrEntries.read(values, _recipients)) entry['number']!,
-    ].map(_uriNumber).where((n) => n.isNotEmpty);
-    final body = message.isEmpty ? '' : '?body=${Uri.encodeComponent(message)}';
-    return 'sms:${numbers.join(',')}$body';
+    ].map(_uriNumber).where((n) => n.isNotEmpty).toList();
+    final body = message.isEmpty ? '' : 'body=${Uri.encodeComponent(message)}';
+    if (values['apple'] == 'true' && numbers.length > 1) {
+      return '$_appleOpen${numbers.join(',')}${body.isEmpty ? '' : '&$body'}';
+    }
+    return 'sms:${numbers.join(',')}${body.isEmpty ? '' : '?$body'}';
   }
 
   static String _uriNumber(String number) =>
@@ -103,16 +123,24 @@ class SmsFormat extends QrFormat {
         'form': smsto,
         'phone': (colon < 0 ? rest : rest.substring(0, colon)).trim(),
         'recipients': '0',
+        'apple': 'false',
         'message': colon < 0 ? '' : rest.substring(colon + 1),
       });
     }
     if (!hasPrefixIgnoreCase(payload, 'sms:')) return null;
     final rest = payload.substring(4);
+    // Apple's form, with one slash or two: the numbers are a query parameter.
+    final apple = RegExp(
+      r'^/{1,2}open\?',
+      caseSensitive: false,
+    ).firstMatch(rest);
     final question = rest.indexOf('?');
-    final numbers = (question < 0 ? rest : rest.substring(0, question))
-        .split(',')
-        .map(_decode)
-        .toList();
+    var numbers = apple != null
+        ? <String>[]
+        : (question < 0 ? rest : rest.substring(0, question))
+              .split(',')
+              .map(_decode)
+              .toList();
     final unsupported = <String>[];
     var message = '';
     if (question >= 0) {
@@ -120,15 +148,20 @@ class SmsFormat extends QrFormat {
         if (param.isEmpty) continue;
         final equals = param.indexOf('=');
         final name = equals < 0 ? param : param.substring(0, equals);
+        final value = equals < 0 ? '' : param.substring(equals + 1);
         if (name == 'body' && equals > 0 && message.isEmpty) {
-          message = _decode(param.substring(equals + 1));
+          message = _decode(value);
+        } else if (apple != null && name == 'addresses' && numbers.isEmpty) {
+          numbers = value.split(',').map(_decode).toList();
         } else {
           addOnce(unsupported, name);
         }
       }
     }
+    if (numbers.isEmpty) numbers = [''];
     return QrParsed({
       'form': smsUri,
+      'apple': apple != null ? 'true' : 'false',
       'phone': numbers.first,
       'recipients': '${numbers.length - 1}',
       for (final (i, number) in numbers.skip(1).indexed)

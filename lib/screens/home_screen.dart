@@ -1100,6 +1100,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         QrFieldType.checkbox => CheckboxListTile(
           title: Text(field.label),
+          subtitle: field.hint == null ? null : Text(field.hint!),
           value: _values[field.id] == 'true',
           onChanged: (value) {
             setState(
@@ -1551,9 +1552,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ...notes,
       ];
     }
-    final modes = {
+    // Each mode once, in the order it first appears, and how many runs there are
+    // when some mode comes back: the full sequence would read as a jumble.
+    final distinct = {
       for (final segment in qr.segments) segment.mode.label.toLowerCase(),
-    }.join(' + ');
+    };
+    final runs = qr.segments.length;
+    final modes = runs > distinct.length
+        ? '${distinct.join(' + ')} ($runs runs)'
+        : distinct.join(' + ');
     final n = qr.moduleCount;
     return [
       (level.choiceLabel(expert: true), levelChanged),

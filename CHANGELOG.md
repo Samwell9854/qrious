@@ -22,7 +22,7 @@ Expert mode: everything the QR spec allows, from the symbol version to every vCa
 
 - **Location:** altitude and uncertainty, in metres.
 - **Contact (MeCard):** nickname, name reading, video phone, birthday (with a calendar) and note.
-- **Text Message (SMS):** the `sms:` form, which can text several people at once.
+- **Text Message (SMS):** the `sms:` form, which can text several people at once, with *Write for Apple devices* for iPhone, which otherwise opens only the first number.
 - **Contact (vCard):** every phone and email type from the vCard spec, such as Voice, Pager or Internet, several at once, and *Main* to mark the main number or address.
 - **Reading a code** with any of these opens it in its form in Expert mode. In Beginner mode it opens as text, and the notice says Expert mode has the fields for it.
 
