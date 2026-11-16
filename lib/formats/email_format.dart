@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' show Icons, IconData;
+import 'package:material_ui/material_ui.dart' show Icons, IconData;
 
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';
@@ -39,9 +39,9 @@ class EmailFormat extends QrFormat {
     // %40 or %2B there to make it worth restoring them — plus-addressing is common.
     // The query parameters keep their full encoding, where + really can be read
     // as a space.
-    final to = Uri.encodeComponent(
-      values['to'] ?? '',
-    ).replaceAll('%40', '@').replaceAll('%2B', '+');
+    final to = Uri.encodeComponent(values['to'] ?? '')
+        .replaceAll('%40', '@')
+        .replaceAll('%2B', '+');
     final params = <String>[];
     if ((values['subject'] ?? '').isNotEmpty) {
       params.add('subject=${Uri.encodeComponent(values['subject']!)}');

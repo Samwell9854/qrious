@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart' show InputTooLongException;
+
 import '../formats/import.dart';
 import '../formats/registry.dart';
 import '../formats/validators.dart';
@@ -815,9 +817,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: Text(
           'Drop an image to read its QR code',
           textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(color: colors.onPrimaryContainer),
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(color: colors.onPrimaryContainer),
         ),
       ),
     );
@@ -922,18 +923,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   children: [
                     Text(
                       'Recognised as $name',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colors.onSecondaryContainer,
-                      ),
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(color: colors.onSecondaryContainer),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Opened as plain text, which keeps its text exactly as scanned, because '
                       'the $name form cannot ${reasons.join('; ')}.'
                       '${offer.expertOnly.isEmpty ? '' : ' Expert mode, in Settings, has fields for them.'}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSecondaryContainer,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: colors.onSecondaryContainer),
                     ),
                     const SizedBox(height: 4),
                     TextButton(
@@ -1041,10 +1040,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   group.label.toUpperCase(),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colors.primary,
-                    letterSpacing: 1.2,
-                  ),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: colors.primary, letterSpacing: 1.2),
                 ),
               ),
             )

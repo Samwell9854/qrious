@@ -173,9 +173,8 @@ void writePubspecVersion(File pubspec, String version) {
 /// release nobody planned. Also returns null for a version dated in the future,
 /// which is a mistake to report rather than quietly walk backwards.
 String? reconcileWithCalendar(String name, DateTime now) {
-  final match = RegExp(
-    r'^(\d{4})\.(\d{1,2})\.(\d+)(?:-([a-z]+)\.(\d+))?$',
-  ).firstMatch(name);
+  final match = RegExp(r'^(\d{4})\.(\d{1,2})\.(\d+)(?:-([a-z]+)\.(\d+))?$')
+      .firstMatch(name);
   if (match == null) return null;
 
   final label = match.group(4);
@@ -207,3 +206,13 @@ String? changelogSection(String changelog, String name) {
       .trim();
   return body.isEmpty ? null : body;
 }
+
+/// The Flutter release CI builds with: `FLUTTER_VERSION` in .github/workflows/ci.yml.
+///
+/// Every shipped bundle is built by CI, so this pin, not the SDK on the machine the
+/// code was written on, decides what users run. new_release.dart refuses to tag
+/// when the two differ, so taking up a new Flutter cannot skip bumping the pin.
+String? ciFlutterPin(String ciYaml) => RegExp(
+  r'^\s*FLUTTER_VERSION:\s*(\S+)\s*$',
+  multiLine: true,
+).firstMatch(ciYaml)?.group(1);

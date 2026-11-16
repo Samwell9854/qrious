@@ -221,6 +221,28 @@ Older.
     });
   });
 
+  // Not compared with the Flutter running the tests: the weekly CI run builds with
+  // the latest stable on purpose. new_release.dart compares them at tagging time.
+  group('ciFlutterPin', () {
+    test('reads the pin from an env block', () {
+      expect(
+        ciFlutterPin('env:\n  FLUTTER_VERSION: 3.50.0\n\njobs:\n'),
+        '3.50.0',
+      );
+    });
+
+    test('is null when there is no pin', () {
+      expect(ciFlutterPin('env:\n  OTHER: 1\n'), isNull);
+    });
+
+    test('finds the pin in the real ci.yml', () {
+      final pin = ciFlutterPin(
+        File('.github/workflows/ci.yml').readAsStringSync(),
+      );
+      expect(pin, matches(RegExp(r'^\d+\.\d+\.\d+$')));
+    });
+  });
+
   group('the version recorded in pubspec.yaml', () {
     late String name;
     late String build;

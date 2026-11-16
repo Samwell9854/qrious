@@ -49,7 +49,7 @@ Qrious also reads QR codes back. Open an image (PNG, JPEG, GIF, BMP, WebP or SVG
 
 ## Running it
 
-Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.47+, Dart `^3.11.5`). Only the Linux desktop target is scaffolded. iOS is on indefinite hold: Apple's paid developer subscription isn't worth it for a free single-purpose app.
+Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.50, Dart `^3.13.0`). Only the Linux desktop target is scaffolded. iOS is on indefinite hold: Apple's paid developer subscription isn't worth it for a free single-purpose app.
 
 ```bash
 flutter pub get

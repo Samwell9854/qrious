@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' show Icons, IconData;
+import 'package:material_ui/material_ui.dart' show Icons, IconData;
 
 import '../models/qr_field.dart';
 import '../models/qr_format.dart';

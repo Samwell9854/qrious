@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qrious/models/qr_format.dart';
 import 'package:qrious/qr_encoding.dart';
@@ -99,9 +99,8 @@ void main() {
 
   testWidgets('the caption gives the spec details', (tester) async {
     await pumpExpert(tester);
-    final modes = {
-      for (final s in qr.segments) s.mode.label.toLowerCase(),
-    }.join(' + ');
+    final modes = {for (final s in qr.segments) s.mode.label.toLowerCase()}
+        .join(' + ');
     final side = (n + 8) * 8;
     expect(
       find.text(

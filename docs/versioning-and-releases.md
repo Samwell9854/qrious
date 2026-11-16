@@ -76,6 +76,12 @@ Previews use the section of the version they lead to, under a banner saying they
 
 **Issues stay open until the stable release ships.** A preview is for testing, and a fix that has not reached users has not fixed anything for them yet. Once the stable release is published, each issue in its `### Issues` line is closed with a comment naming the release.
 
+## The Flutter version
+
+**`FLUTTER_VERSION` in [.github/workflows/ci.yml](../.github/workflows/ci.yml) is the Flutter every shipped bundle is built with.** Releases are built by CI, not on the machine the code was written and tested on, so the pin is what users actually run. The weekly scheduled run ignores it and builds with the latest stable, to show what a newer Flutter would break before it is taken up.
+
+**Taking up a new Flutter means moving the pin with it.** After `flutter upgrade`, fix whatever `flutter analyze` and `flutter test` report, set `FLUTTER_VERSION` to the version `flutter --version` prints, and update the version named in CLAUDE.md and README.md, all in the same change. `tool/new_release.dart` refuses to tag while the local Flutter and the pin differ, which is what catches a forgotten pin.
+
 ## Releasing
 
 ```bash
@@ -89,6 +95,6 @@ git push origin v2026.8.0-alpha.1             # the script prints this line
 
 There is no step after tagging: the next commit that changes app code opens the next version.
 
-The script refuses a malformed version, a version with no build number, a version with no CHANGELOG.md section, a dirty tree (`--allow-dirty` overrides), a tag that already exists, and a repository with no commits. It **never pushes and never writes to the repo** — it validates and tags; opening the next version is a commit you make, which keeps the one tool that touches git history from also editing files.
+The script refuses a malformed version, a version with no build number, a version with no CHANGELOG.md section, a dirty tree (`--allow-dirty` overrides), a tag that already exists, a repository with no commits, and a local Flutter that differs from the one CI builds with. It **never pushes and never writes to the repo** — it validates and tags; opening the next version is a commit you make, which keeps the one tool that touches git history from also editing files.
 
 The format rule lives once, in `tool/version_info.dart`, and is used by both the release script and [test/version_test.dart](../test/version_test.dart) — which also asserts the version currently in pubspec.yaml is well-formed, carries a build number, and is not dated in the future, so a typo fails `flutter test` instead of surfacing at release time.

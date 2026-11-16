@@ -1,8 +1,9 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+
 import '../qr_encoding.dart';
 import '../qr_png.dart';
 import 'qr_symbol.dart';

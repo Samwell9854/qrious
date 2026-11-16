@@ -4,9 +4,10 @@
 // Tags the current commit with the version recorded in pubspec.yaml.
 //
 // Reads the version: field, checks it against the yyyy.m.micro calendar-version
-// format and that CHANGELOG.md has its release notes, and creates the matching
-// annotated tag. The version is edited by hand in
-// pubspec.yaml; this only derives the tag from it, so the two cannot disagree.
+// format, that CHANGELOG.md has its release notes and that CI builds with the
+// Flutter on this machine, and creates the matching annotated tag. The version is
+// edited by hand in pubspec.yaml; this only derives the tag from it, so the two
+// cannot disagree.
 //
 // Nothing is pushed — the command to do that is printed instead.
 //
@@ -17,6 +18,7 @@
 //   dart run tool/new_release.dart --message "..."
 //
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'version_info.dart';
@@ -59,6 +61,8 @@ void main(List<String> args) {
       'changes, then commit.',
     );
   }
+
+  _checkFlutterPin(root);
 
   if (_git(root, ['rev-parse', '--git-dir']).exitCode != 0) {
     _fail("'$root' is not a git repository.");
@@ -126,6 +130,33 @@ void _printFollowUp(String root, String tag, String name, String build) {
   final ios = iosBuildCommand(name, build);
   if (ios != null) {
     stdout.writeln('If an iOS runner is ever added, build this tag with: $ios');
+  }
+}
+
+/// Fails unless the Flutter on this machine is the one CI builds the tag with.
+void _checkFlutterPin(String root) {
+  final ci = File('$root/.github/workflows/ci.yml');
+  final pin = ci.existsSync() ? ciFlutterPin(ci.readAsStringSync()) : null;
+  if (pin == null) {
+    _fail('No FLUTTER_VERSION pin found in ${ci.path}.');
+  }
+
+  final ProcessResult result;
+  try {
+    result = Process.runSync('flutter', ['--version', '--machine']);
+  } on ProcessException catch (e) {
+    _fail('Could not run flutter to compare it with the CI pin: ${e.message}');
+  }
+  final local = result.exitCode == 0
+      ? (jsonDecode(_stdout(result))
+            as Map<String, dynamic>)['frameworkVersion']
+      : null;
+  if (local != pin) {
+    _fail(
+      'This machine has Flutter ${local ?? '(unknown)'}, but CI builds the release '
+      'with $pin.\nSet FLUTTER_VERSION in ${ci.path} to the Flutter the code was '
+      'tested on, commit and push it, and let CI pass before tagging.',
+    );
   }
 }
 

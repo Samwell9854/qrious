@@ -8,8 +8,10 @@ import 'qr_export.dart';
 /// without a real GTK dialog: the dialog is the one part of saving that cannot
 /// run headless, and everything after it — rendering and writing — is worth
 /// testing for real.
-typedef SaveLocationPicker =
-    Future<String?> Function(String suggestedName, ExportFileType type);
+typedef SaveLocationPicker = Future<String?> Function(
+  String suggestedName,
+  ExportFileType type,
+);
 
 /// The real save dialog, offering only [type]: the app asks which type before
 /// opening it, because the Linux dialog cannot report which filter was picked.

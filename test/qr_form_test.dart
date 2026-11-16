@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' show Icons, IconData;
+import 'package:material_ui/material_ui.dart' show Icons, IconData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qrious/formats/import.dart';
 import 'package:qrious/formats/text_format.dart';
