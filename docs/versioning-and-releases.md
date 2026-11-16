@@ -78,7 +78,7 @@ Previews use the section of the version they lead to, under a banner saying they
 
 ## The Flutter version
 
-**`FLUTTER_VERSION` in [.github/workflows/ci.yml](../.github/workflows/ci.yml) is the Flutter every shipped bundle is built with.** Releases are built by CI, not on the machine the code was written and tested on, so the pin is what users actually run. The weekly scheduled run ignores it and builds with the latest stable, to show what a newer Flutter would break before it is taken up.
+**`FLUTTER_VERSION` in [.github/workflows/ci.yml](../.github/workflows/ci.yml) is the Flutter every shipped bundle is built with.** Releases are built by CI, not on the machine the code was written and tested on, so the pin is what users actually run.
 
 **Taking up a new Flutter means moving the pin with it.** After `flutter upgrade`, fix whatever `flutter analyze` and `flutter test` report, set `FLUTTER_VERSION` to the version `flutter --version` prints, and update the version named in CLAUDE.md and README.md, all in the same change. `tool/new_release.dart` refuses to tag while the local Flutter and the pin differ, which is what catches a forgotten pin.
 

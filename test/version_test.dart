@@ -221,8 +221,8 @@ Older.
     });
   });
 
-  // Not compared with the Flutter running the tests: the weekly CI run builds with
-  // the latest stable on purpose. new_release.dart compares them at tagging time.
+  // Not compared with the Flutter running the tests, which may be a newer one being
+  // tried locally. new_release.dart compares them at tagging time.
   group('ciFlutterPin', () {
     test('reads the pin from an env block', () {
       expect(

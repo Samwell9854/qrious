@@ -1,9 +1,8 @@
 # Lint, test and build on every push and pull request.
 #
 # Flutter is pinned, so a push is only ever judged against the toolchain it was
-# written for. The weekly scheduled run builds against the latest stable instead:
-# when a new Flutter breaks something, it shows up there, on its own schedule, not
-# in the middle of a release.
+# written for. A newer Flutter is taken up locally, with flutter upgrade, and the pin
+# moved with it; see docs/versioning-and-releases.md.
 #
 # release.yml calls this workflow before packaging a tag, so the pin lives here
 # only and a tag cannot ship a bundle that failed these checks.
@@ -14,8 +13,6 @@ on:
   push:
     branches: ['**']
   pull_request:
-  schedule:
-    - cron: '0 6 * * 1'
   workflow_dispatch:
   workflow_call:
 
@@ -43,8 +40,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          # Empty means the latest stable release.
-          flutter-version: ${{ github.event_name != 'schedule' && env.FLUTTER_VERSION || '' }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       - run: flutter pub get
