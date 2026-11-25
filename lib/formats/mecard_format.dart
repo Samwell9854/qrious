@@ -26,7 +26,7 @@ class MeCardFormat extends QrFormat {
   List<QrField> get fields => const [
     // No part of the name is required: DoCoMo's spec gives N: as zero or more
     // characters, like every other field.
-    QrField(id: 'first_name', label: 'First Name'),
+    QrField(id: 'first_name', label: 'First Name', warn: warnTooManyNames),
     QrField(id: 'last_name', label: 'Last Name'),
     QrField(id: 'nickname', label: 'Nickname'),
     // How the name is read aloud, which Japanese phones file contacts under.
@@ -183,6 +183,37 @@ class MeCardFormat extends QrFormat {
     }
     return QrParsed(values, unsupported);
   }
+
+  /// Cautions that the iPhone camera cannot read the name: with a last name, it takes
+  /// a title and at most two given names after the comma, and drops the whole name
+  /// for three or more, the code going unread when nothing else is on it. No other
+  /// way of writing it fits either (docs/readers.md). A first name alone has room for
+  /// more, and the particles of a last name (`de la`) make counting its words
+  /// unreliable, so it gets no caution.
+  static String? warnTooManyNames(Map<String, String> values) {
+    if ((values['last_name'] ?? '').trim().isEmpty) return null;
+    final words = (values['first_name'] ?? '').trim().split(RegExp(r'\s+'))
+      ..removeWhere((w) => w.isEmpty);
+    if (words.isNotEmpty && _titles.contains(words.first.toLowerCase())) {
+      words.removeAt(0);
+    }
+    if (words.length < 3) return null;
+    return 'iPhone cannot read a MeCard name with three given names or more. '
+        'A vCard keeps them all.';
+  }
+
+  // Titles the iPhone takes as a prefix rather than a name; `Dr.` is the one tested.
+  static const _titles = {
+    'dr.',
+    'dr',
+    'mr.',
+    'mr',
+    'mrs.',
+    'mrs',
+    'ms.',
+    'ms',
+    'prof.',
+  };
 
   static const _once = {
     'N',

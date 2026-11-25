@@ -164,4 +164,19 @@ void main() {
       expect(after.selection.baseOffset, 7);
     });
   });
+
+  testWidgets(
+    'a MeCard name the iPhone cannot read is cautioned, not refused',
+    (tester) async {
+      await pumpHome(tester);
+      await chooseFormat(tester, 'Contact (MeCard, compact)');
+      await type(tester, 'Last Name', 'Smith');
+      await type(tester, 'First Name', 'John Paul George');
+      expect(find.textContaining('iPhone cannot read'), findsOneWidget);
+      expect(find.byType(QrSymbol), findsOneWidget);
+
+      await type(tester, 'First Name', 'John Paul');
+      expect(find.textContaining('iPhone cannot read'), findsNothing);
+    },
+  );
 }

@@ -255,4 +255,30 @@ void main() {
       expect(format.fields.where((f) => f.required), isEmpty);
     });
   });
+
+  group('the too-many-names caution', () {
+    String? warn(String first, [String last = 'Smith']) =>
+        MeCardFormat.warnTooManyNames({'first_name': first, 'last_name': last});
+
+    test('is silent for two given names or fewer', () {
+      expect(warn('John'), isNull);
+      expect(warn('John Paul'), isNull);
+      expect(warn('John Paul-George'), isNull);
+    });
+
+    test('speaks for three given names or more, initials included', () {
+      expect(warn('John Paul George'), isNotNull);
+      expect(warn('J. P. George'), isNotNull);
+      expect(warn('  John   Paul  George '), isNotNull);
+    });
+
+    test('does not count a title', () {
+      expect(warn('Dr. John Paul'), isNull);
+      expect(warn('Dr. John Paul George'), isNotNull);
+    });
+
+    test('is silent without a last name', () {
+      expect(warn('John Paul George', ''), isNull);
+    });
+  });
 }

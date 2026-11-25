@@ -1103,6 +1103,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildField(QrField field) {
     if (field.type == QrFieldType.group) return _buildGroup(field);
     final error = _errorFor(field);
+    // A caution, which never holds the code back, and gives way to an error.
+    final warning = error == null ? field.warn?.call(_values) : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: switch (field.type) {
@@ -1138,6 +1140,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             hintText: field.hint,
             border: const OutlineInputBorder(),
             errorText: error,
+            helperText: warning,
+            helperMaxLines: 3,
           ),
           // Grows with its text, then scrolls, so a long note is not read
           // through a four-line slot.
@@ -1151,6 +1155,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             hintText: field.hint,
             border: const OutlineInputBorder(),
             errorText: error,
+            helperText: warning,
+            helperMaxLines: 3,
             suffixIcon: IconButton(
               icon: Icon(
                 _revealed.contains(field.id)
@@ -1176,6 +1182,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             hintText: field.hint ?? 'YYYY-MM-DD',
             border: const OutlineInputBorder(),
             errorText: error,
+            helperText: warning,
+            helperMaxLines: 3,
             suffixIcon: IconButton(
               icon: const Icon(Icons.calendar_month_outlined),
               tooltip: 'Pick a date',
@@ -1190,6 +1198,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             hintText: field.hint,
             border: const OutlineInputBorder(),
             errorText: error,
+            helperText: warning,
+            helperMaxLines: 3,
           ),
         ),
       },

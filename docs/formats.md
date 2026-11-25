@@ -27,6 +27,7 @@ class QrParsed {
 enum QrFieldType { text, password, multiline, dropdown, checkbox, group, date }
 
 typedef QrFieldValidator = String? Function(String value);
+typedef QrFieldWarning = String? Function(Map<String, String> values);
 
 class QrField {
   final String id;             // key into the values map
@@ -36,6 +37,7 @@ class QrField {
   final bool required;         // gates QR rendering
   final String? hint;
   final QrFieldValidator? validate; // optional; also gates QR rendering
+  final QrFieldWarning? warn;  // optional; a caution under the field, never gates rendering
   final List<QrField>? parts;  // group only: the fields one entry is made of
   final List<QrKind>? kinds;   // group only: what an entry can be labelled as
   final List<QrKind> expertKinds; // group only: further kinds, in expert mode
@@ -91,6 +93,8 @@ A validator returns the message to show under the field, or null when the value 
 
 - **It is never called with an empty string.** An empty field means "not filled in yet" — that is what `required` expresses. A form that flags every field the moment it opens is worse than one that waits until there is something to judge. `buildQrString` still has to tolerate empty values; nothing changed there.
 - **Any error blocks the QR code**, including on an optional field. An optional field that is filled in *wrongly* would otherwise be encoded into the payload, which is exactly the case validation exists to catch.
+
+A **warning** (`warn`) is the other kind of message: a caution about a valid code that a known reader mishandles, shown under the field as helper text. It never holds the code back, because the code is right and the reader is not, and the product does not refuse what the spec allows; it gives way to an error on the same field. It gets every value, as a caution can depend on another field: MeCard's first name warns when, with a last name, it holds three given names or more, which the iPhone camera cannot read at all ([readers.md](readers.md#mecard-n)). Warn only where the reader's behaviour is recorded in readers.md, and only where it breaks something the user would see.
 
 The shared rules live in [lib/formats/validators.dart](../lib/formats/validators.dart) — `validateEmail`, `validateUrl`, `validatePhone`, `validateSsid` — because a vCard carries an email, a URL and a phone number, and they are the same things the dedicated formats encode. A rule that only one format could want belongs in that format as a `static` method instead.
 

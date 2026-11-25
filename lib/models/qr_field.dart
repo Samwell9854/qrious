@@ -7,6 +7,12 @@ enum QrFieldType { text, password, multiline, dropdown, checkbox, group, date }
 /// `lib/formats/validators.dart`.
 typedef QrFieldValidator = String? Function(String value);
 
+/// Looks at the whole form and returns a caution to show under one field, or null.
+/// Unlike a [QrFieldValidator] it never holds the code back: it says what a known
+/// reader will make of a code that is valid, so the user can decide. It gets every
+/// value because a caution can turn on more than its own field.
+typedef QrFieldWarning = String? Function(Map<String, String> values);
+
 /// A label an entry of a [QrFieldType.group] can carry, such as a phone being
 /// a mobile or a work number.
 class QrKind {
@@ -29,6 +35,10 @@ class QrField {
 
   /// Optional. Must be a top-level or static function so `fields` stays `const`.
   final QrFieldValidator? validate;
+
+  /// Optional, and static like [validate]: a caution shown under the field that does
+  /// not hold the code back. An error from [validate] takes its place.
+  final QrFieldWarning? warn;
 
   /// For a group: the fields one entry is made of. A single part is shown as one
   /// line; several are boxed together.
@@ -61,6 +71,7 @@ class QrField {
     this.required = false,
     this.hint,
     this.validate,
+    this.warn,
     this.parts,
     this.kinds,
     this.expertKinds = const [],

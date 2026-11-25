@@ -85,4 +85,6 @@ A non-breaking space counts as a space throughout, and alone it counts as nothin
 
 A vCard has none of these limits: `N:Smith;John␣Paul␣George;;;` gives first *John Paul George*, last Smith.
 
+Qrious cautions under the MeCard first name when, with a last name, it holds three given names or more, a leading title not counted, since that code cannot be read at all. It does not caution a first name alone of four words or more, which fails too, because a last name's particles make its words impossible to count reliably.
+
 Follow-up: [#25](https://github.com/Samwell9854/qrious/issues/25).
