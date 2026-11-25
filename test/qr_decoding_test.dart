@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qr/qr.dart';
 import 'package:qrious/qr_decoding.dart';
 import 'package:zxing2/qrcode.dart';
 
@@ -13,7 +13,10 @@ const _quiet = 4;
 /// Black modules on white with a quiet zone, [_module] pixels per module.
 img.Image _render(String data) {
   final qr = QrImage(
-    QrCode.fromData(data: data, errorCorrectLevel: QrErrorCorrectLevel.M),
+    QrCode(
+      payload: QrPayload.fromString(data),
+      errorCorrectLevel: QrErrorCorrectLevel.medium,
+    ),
   );
   final side = (qr.moduleCount + 2 * _quiet) * _module;
   final image = img.Image(width: side, height: side, numChannels: 3);

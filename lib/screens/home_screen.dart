@@ -5,7 +5,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:qr_flutter/qr_flutter.dart' show InputTooLongException;
+import 'package:qr/qr.dart' show InputTooLongException;
 
 import '../formats/import.dart';
 import '../formats/registry.dart';

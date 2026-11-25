@@ -1,4 +1,4 @@
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qr/qr.dart';
 
 import 'qr_segments.dart';
 
@@ -9,10 +9,10 @@ import 'qr_segments.dart';
 /// spec letters (L, M, Q, H) in front of them.
 enum ErrorCorrection {
   auto('Auto', null, null, null),
-  low('Low', 'L', QrErrorCorrectLevel.L, 7),
-  medium('Medium', 'M', QrErrorCorrectLevel.M, 15),
-  high('High', 'Q', QrErrorCorrectLevel.Q, 25),
-  highest('Highest', 'H', QrErrorCorrectLevel.H, 30);
+  low('Low', 'L', QrErrorCorrectLevel.low, 7),
+  medium('Medium', 'M', QrErrorCorrectLevel.medium, 15),
+  high('High', 'Q', QrErrorCorrectLevel.quartile, 25),
+  highest('Highest', 'H', QrErrorCorrectLevel.high, 30);
 
   const ErrorCorrection(
     this.label,
@@ -26,9 +26,9 @@ enum ErrorCorrection {
   /// The spec's name for the level; null for [auto].
   final String? letter;
 
-  /// The `qr` package's constant for this level; null for [auto], which resolves
-  /// to one of the others per payload.
-  final int? qrLevel;
+  /// The `qr` package's level; null for [auto], which resolves to one of the others
+  /// per payload. Its names are not the beginner ones: Q is `quartile`, H is `high`.
+  final QrErrorCorrectLevel? qrLevel;
 
   /// Roughly how much of the symbol can be damaged and still read.
   final int? recoveryPercent;
@@ -128,15 +128,27 @@ EncodedQr encodeQr(
   };
   final fit = _fit(data, level, forced, from);
   if (fit == null) {
-    final segments = segmentsFor(data, 40);
-    throw InputTooLongException(
-      bitLength(segments, 40),
-      dataCapacityBits(40, ErrorCorrection.low.qrLevel!),
+    // Too long for version 40 at low. The package's exception cannot be built from
+    // outside it, so the package is handed the payload to refuse.
+    QrCode(
+      payload: payloadFor(segmentsFor(data, 40)),
+      errorCorrectLevel: ErrorCorrection.low.qrLevel!,
     );
+    throw StateError('qr accepted a payload too long for version 40');
   }
   final (fitted, segments) = fit;
-  final code = QrCode(fitted, level.qrLevel!);
-  addSegments(code, segments);
+  // The package sizes the symbol itself, from this version up. It stops at exactly
+  // this one, because its capacities and count-field widths are the same as
+  // qr_segments.dart's; a symbol of another size would not be the one the caption
+  // describes, so a disagreement is an error rather than a quietly different code.
+  final code = QrCode(
+    payload: payloadFor(segments),
+    errorCorrectLevel: level.qrLevel!,
+    minTypeNumber: fitted,
+  );
+  if (code.typeNumber != fitted) {
+    throw StateError('qr sized version ${code.typeNumber}, expected $fitted');
+  }
   final image = mask == null
       ? QrImage(code)
       : QrImage.withMaskPattern(code, mask);

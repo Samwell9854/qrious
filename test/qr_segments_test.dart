@@ -1,15 +1,26 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qr/qr.dart';
 import 'package:qrious/qr_segments.dart';
 
 const _levels = [
-  QrErrorCorrectLevel.L,
-  QrErrorCorrectLevel.M,
-  QrErrorCorrectLevel.Q,
-  QrErrorCorrectLevel.H,
+  QrErrorCorrectLevel.low,
+  QrErrorCorrectLevel.medium,
+  QrErrorCorrectLevel.quartile,
+  QrErrorCorrectLevel.high,
 ];
+
+/// The version the package sizes [segments] to at [level], from [version] up.
+int _sizedFrom(
+  List<QrSegment> segments,
+  QrErrorCorrectLevel level,
+  int version,
+) => QrCode(
+  payload: payloadFor(segments),
+  errorCorrectLevel: level,
+  minTypeNumber: version,
+).typeNumber;
 
 String _joined(List<QrSegment> s) => s.map((e) => e.text).join();
 
@@ -255,46 +266,60 @@ void main() {
 
   group('dataCapacityBits', () {
     test('spot values', () {
-      expect(dataCapacityBits(1, QrErrorCorrectLevel.L), 19 * 8);
-      expect(dataCapacityBits(1, QrErrorCorrectLevel.H), 9 * 8);
-      expect(dataCapacityBits(40, QrErrorCorrectLevel.L), 2956 * 8);
-      expect(dataCapacityBits(40, QrErrorCorrectLevel.H), 1276 * 8);
+      expect(dataCapacityBits(1, QrErrorCorrectLevel.low), 19 * 8);
+      expect(dataCapacityBits(1, QrErrorCorrectLevel.high), 9 * 8);
+      expect(dataCapacityBits(40, QrErrorCorrectLevel.low), 2956 * 8);
+      expect(dataCapacityBits(40, QrErrorCorrectLevel.high), 1276 * 8);
     });
 
-    test('a byte payload that exactly fills builds, one more throws', () {
-      for (final level in _levels) {
-        for (var v = 1; v <= 40; v++) {
-          final capacity = dataCapacityBits(v, level);
-          var n = 0;
-          while (bitLength([QrSegment(EncodingMode.byte, 'a' * (n + 1))], v) <=
-              capacity) {
-            n++;
+    test(
+      'a byte payload that exactly fills stays, one more needs the next',
+      () {
+        for (final level in _levels) {
+          for (var v = 1; v <= 40; v++) {
+            final capacity = dataCapacityBits(v, level);
+            var n = 0;
+            while (bitLength([
+                  QrSegment(EncodingMode.byte, 'a' * (n + 1)),
+                ], v) <=
+                capacity) {
+              n++;
+            }
+            List<QrSegment> bytes(int n) => [
+              QrSegment(EncodingMode.byte, 'a' * n),
+            ];
+            expect(
+              _sizedFrom(bytes(n), level, v),
+              v,
+              reason: 'v$v $level full',
+            );
+            if (v < 40) {
+              expect(
+                _sizedFrom(bytes(n + 1), level, v),
+                v + 1,
+                reason: 'v$v $level over',
+              );
+            } else {
+              expect(
+                () => _sizedFrom(bytes(n + 1), level, v),
+                throwsA(isA<InputTooLongException>()),
+              );
+            }
           }
-          QrImage.withMaskPattern(QrCode(v, level)..addData('a' * n), 0);
-          expect(
-            () => QrImage.withMaskPattern(
-              QrCode(v, level)..addData('a' * (n + 1)),
-              0,
-            ),
-            throwsA(isA<InputTooLongException>()),
-            reason: 'v$v level $level',
-          );
         }
-      }
-    });
+      },
+    );
   });
 
-  group('addSegments', () {
-    test('a mixed payload builds at the version bitLength finds', () {
+  group('payloadFor', () {
+    test('a mixed payload is sized to the version bitLength finds', () {
       const data =
           'Password: abcXYZ 12345678901234567890123456789012 HELLO WORLD';
-      const level = QrErrorCorrectLevel.M;
+      const level = QrErrorCorrectLevel.medium;
       for (var v = 1; v <= 40; v++) {
         final segments = segmentsFor(data, v);
         if (bitLength(segments, v) > dataCapacityBits(v, level)) continue;
-        final code = QrCode(v, level);
-        addSegments(code, segments);
-        expect(() => QrImage.withMaskPattern(code, 0), returnsNormally);
+        expect(_sizedFrom(segments, level, 1), v);
         return;
       }
       fail('no version fits');
@@ -302,17 +327,11 @@ void main() {
 
     test('41 digits fit v1-L as numeric but not as bytes', () {
       final digits = '1' * 41;
-      const level = QrErrorCorrectLevel.L;
-      final numeric = QrCode(1, level);
-      addSegments(numeric, [QrSegment(EncodingMode.numeric, digits)]);
-      expect(() => QrImage.withMaskPattern(numeric, 0), returnsNormally);
-
-      final bytes = QrCode(1, level);
-      addSegments(bytes, [QrSegment(EncodingMode.byte, digits)]);
-      expect(
-        () => QrImage.withMaskPattern(bytes, 0),
-        throwsA(isA<InputTooLongException>()),
-      );
+      const level = QrErrorCorrectLevel.low;
+      final numeric = [QrSegment(EncodingMode.numeric, digits)];
+      expect(_sizedFrom(numeric, level, 1), 1);
+      final bytes = [QrSegment(EncodingMode.byte, digits)];
+      expect(_sizedFrom(bytes, level, 1), greaterThan(1));
     });
   });
 }

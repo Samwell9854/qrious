@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qr/qr.dart';
 
 /// The QR data modes Qrious writes. Kanji is not supported.
 enum EncodingMode {
@@ -206,29 +206,33 @@ const _dataCodewords = <List<int>>[
   ],
 ];
 
-/// Data bits a symbol of [version] holds at error-correction level [qrLevel]
-/// (a `QrErrorCorrectLevel` constant): data codewords × 8.
-int dataCapacityBits(int version, int qrLevel) {
-  final row = switch (qrLevel) {
-    QrErrorCorrectLevel.L => 0,
-    QrErrorCorrectLevel.M => 1,
-    QrErrorCorrectLevel.Q => 2,
-    QrErrorCorrectLevel.H => 3,
-    _ => throw ArgumentError('error correction level: $qrLevel'),
+/// Data bits a symbol of [version] holds at error-correction [level]: data
+/// codewords × 8.
+int dataCapacityBits(int version, QrErrorCorrectLevel level) {
+  final row = switch (level) {
+    QrErrorCorrectLevel.low => 0,
+    QrErrorCorrectLevel.medium => 1,
+    QrErrorCorrectLevel.quartile => 2,
+    QrErrorCorrectLevel.high => 3,
   };
   return _dataCodewords[row][version - 1] * 8;
 }
 
-/// Adds [segments] to [code] in order, each through the matching `qr` method.
-void addSegments(QrCode code, List<QrSegment> segments) {
+/// [segments] as a `qr` payload, in order, each run in its own mode.
+///
+/// A byte run goes in as its UTF-8 bytes rather than through `addString`, which would
+/// pick the mode itself and put an ECI header in front of anything beyond Latin-1.
+QrPayload payloadFor(List<QrSegment> segments) {
+  final payload = QrPayload();
   for (final s in segments) {
     switch (s.mode) {
       case EncodingMode.numeric:
-        code.addNumeric(s.text);
+        payload.addNumeric(s.text);
       case EncodingMode.alphanumeric:
-        code.addAlphaNumeric(s.text);
+        payload.addAlphaNumeric(s.text);
       case EncodingMode.byte:
-        code.addData(s.text);
+        payload.addTypedData(utf8.encode(s.text));
     }
   }
+  return payload;
 }

@@ -1,13 +1,17 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:qr/qr.dart';
 import 'package:qrious/qr_decoding.dart';
 import 'package:qrious/qr_encoding.dart';
 import 'package:qrious/qr_segments.dart';
 
 /// The smallest version that holds [data] at [level], straight from the package.
-int versionAt(String data, ErrorCorrection level) =>
-    QrCode.fromData(data: data, errorCorrectLevel: level.qrLevel!).typeNumber;
+int versionAt(String data, ErrorCorrection level) => QrCode(
+  payload: QrPayload()..addTypedData(utf8.encode(data)),
+  errorCorrectLevel: level.qrLevel!,
+).typeNumber;
 
 /// What a reader makes of [qr], drawn black on white at 4 pixels per module.
 List<String> readBack(EncodedQr qr) {
@@ -169,7 +173,7 @@ void main() {
     );
 
     test('version 15 at H holds what the spec says and reads back', () {
-      expect(dataCapacityBits(15, QrErrorCorrectLevel.H), 223 * 8);
+      expect(dataCapacityBits(15, QrErrorCorrectLevel.high), 223 * 8);
       final qr = encodeQr(data, ErrorCorrection.highest, version: 15);
       expect(qr.version, 15);
       expect(qr.errorCorrection, ErrorCorrection.highest);

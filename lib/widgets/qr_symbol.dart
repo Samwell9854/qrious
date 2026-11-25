@@ -5,9 +5,9 @@ import '../qr_encoding.dart';
 /// The encoded symbol drawn on screen: exactly the module matrix that is saved, black
 /// on white, with [quietZone] modules of white around it.
 ///
-/// qr_flutter's own view is not used because its painter works out the mask again
-/// from the code, which would show a different symbol from the saved one as soon as
-/// the mask is chosen rather than picked by the library.
+/// It is drawn here rather than by a QR widget package because such a painter works
+/// out the mask again from the code, which would show a different symbol from the
+/// saved one as soon as the mask is chosen rather than picked by the library.
 class QrSymbol extends StatelessWidget {
   const QrSymbol({
     super.key,
