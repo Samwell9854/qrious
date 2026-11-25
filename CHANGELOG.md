@@ -11,7 +11,7 @@ Contacts get a nickname, a birthday and a note, and no longer need a first name.
 - **A nickname, a birthday and a note** in both contact formats, without Expert mode. In a vCard the note can run over several lines. A scanned contact carrying them no longer has to open as text for their sake. ([#20](https://github.com/Samwell9854/qrious/issues/20))
 - **No name is required.** A contact can have a last name alone, or no name at all, such as a vCard for a company, with only its organisation and phone. The code appears as soon as any field is filled in. In a MeCard, the iPhone files a last name alone as the first name, whatever way it is written; a vCard keeps it apart.
 - **A birthday can be typed as digits alone**: 19851204 becomes 1985-12-04 as you type.
-- **A caution for MeCard names the iPhone cannot read.** With a last name, the iPhone camera drops a name of three given names or more, and reads nothing when the card holds nothing else. Qrious says so under the first name and points to vCard, which keeps them all. The code is still made.
+- **A caution for MeCard names the iPhone may not read.** The iPhone camera takes at most three names, and drops a longer one, reading nothing when the card holds nothing else. Qrious says so under the first name when the names run past three words, and points to vCard, which keeps them all. The code is still made.
 
 ### Forms
 

@@ -184,21 +184,25 @@ class MeCardFormat extends QrFormat {
     return QrParsed(values, unsupported);
   }
 
-  /// Cautions that the iPhone camera cannot read the name: with a last name, it takes
-  /// a title and at most two given names after the comma, and drops the whole name
-  /// for three or more, the code going unread when nothing else is on it. No other
-  /// way of writing it fits either (docs/readers.md). A first name alone has room for
-  /// more, and the particles of a last name (`de la`) make counting its words
-  /// unreliable, so it gets no caution.
+  /// Cautions that the iPhone camera may not read the name. It takes three names at
+  /// most, first, middle and last, besides a title and a suffix, and drops the whole
+  /// name past that, the code going unread when nothing else is on it, however the
+  /// name is written (docs/readers.md). Its exact count turns on particles (`de la`
+  /// counts with its last name) and on where the comma falls, so this counts plainly:
+  /// every word of both names, a leading title left out, and cautions above three.
+  /// That speaks for a few names the iPhone does read, which is why it says "may".
   static String? warnTooManyNames(Map<String, String> values) {
-    if ((values['last_name'] ?? '').trim().isEmpty) return null;
-    final words = (values['first_name'] ?? '').trim().split(RegExp(r'\s+'))
-      ..removeWhere((w) => w.isEmpty);
-    if (words.isNotEmpty && _titles.contains(words.first.toLowerCase())) {
-      words.removeAt(0);
-    }
-    if (words.length < 3) return null;
-    return 'iPhone cannot read a MeCard name with three given names or more. '
+    final words = [
+      for (final id in const ['first_name', 'last_name'])
+        ...(values[id] ?? '').trim().split(RegExp(r'\s+')),
+    ]..removeWhere((w) => w.isEmpty);
+    final first = (values['first_name'] ?? '')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .first;
+    if (_titles.contains(first.toLowerCase())) words.remove(first);
+    if (words.length <= 3) return null;
+    return 'An iPhone may not read a MeCard name of more than three words. '
         'A vCard keeps them all.';
   }
 

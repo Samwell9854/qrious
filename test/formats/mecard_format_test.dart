@@ -260,25 +260,25 @@ void main() {
     String? warn(String first, [String last = 'Smith']) =>
         MeCardFormat.warnTooManyNames({'first_name': first, 'last_name': last});
 
-    test('is silent for two given names or fewer', () {
+    test('is silent for three words or fewer', () {
       expect(warn('John'), isNull);
       expect(warn('John Paul'), isNull);
       expect(warn('John Paul-George'), isNull);
+      expect(warn('John Paul George', ''), isNull);
+      expect(warn('', 'de la'), isNull);
     });
 
-    test('speaks for three given names or more, initials included', () {
+    test('speaks for more than three, across both names', () {
       expect(warn('John Paul George'), isNotNull);
       expect(warn('J. P. George'), isNotNull);
       expect(warn('  John   Paul  George '), isNotNull);
+      expect(warn('a b c d e', ''), isNotNull);
+      expect(warn('John', 'de la Cruz'), isNotNull);
     });
 
-    test('does not count a title', () {
+    test('does not count a leading title', () {
       expect(warn('Dr. John Paul'), isNull);
       expect(warn('Dr. John Paul George'), isNotNull);
-    });
-
-    test('is silent without a last name', () {
-      expect(warn('John Paul George', ''), isNull);
     });
   });
 }

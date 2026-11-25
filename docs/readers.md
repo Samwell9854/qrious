@@ -85,6 +85,6 @@ A non-breaking space counts as a space throughout, and alone it counts as nothin
 
 A vCard has none of these limits: `N:Smith;John␣Paul␣George;;;` gives first *John Paul George*, last Smith.
 
-Qrious cautions under the MeCard first name when, with a last name, it holds three given names or more, a leading title not counted, since that code cannot be read at all. It does not caution a first name alone of four words or more, which fails too, because a last name's particles make its words impossible to count reliably.
+Qrious cautions under the MeCard first name when the two names hold more than three words between them, a leading title not counted. The count is plain on purpose: the iPhone's own turns on particles and on where the comma falls, so the caution says the iPhone *may* not read the name, and it also shows for a few names that read fine, such as `Mary␣Ann␣de␣la␣Cruz`. A first name alone of five words (`a␣b␣c␣d␣e`) is not read either.
 
 Follow-up: [#25](https://github.com/Samwell9854/qrious/issues/25).
