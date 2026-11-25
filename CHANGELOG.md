@@ -12,7 +12,7 @@ Version 15 at the highest error correction is back in Expert mode.
 
 ### Issues
 
-Fixes #23.
+Fixes #23 and #24.
 
 ## 2026.11.0
 
