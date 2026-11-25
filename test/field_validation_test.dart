@@ -14,7 +14,9 @@ Future<void> selectFormat(WidgetTester tester, String name) async {
 }
 
 Future<void> type(WidgetTester tester, String label, String value) async {
-  await tester.enterText(find.widgetWithText(TextFormField, label), value);
+  final field = find.widgetWithText(TextFormField, label);
+  await tester.ensureVisible(field);
+  await tester.enterText(field, value);
   await tester.pump();
 }
 
@@ -76,6 +78,7 @@ void main() {
     expect(find.byType(QrSymbol), findsOneWidget);
 
     // Email is optional here, but a wrong one would still be encoded.
+    await tester.ensureVisible(find.text('Add email'));
     await tester.tap(find.text('Add email'));
     await tester.pump();
     await type(tester, 'Email · Home', 'not-an-address');

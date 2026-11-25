@@ -67,7 +67,17 @@ void main() {
     group('optional fields', () {
       test('are omitted entirely when absent', () {
         final payload = format.buildQrString({'first_name': 'Ada'});
-        for (final tag in ['ORG', 'TITLE', 'TEL', 'EMAIL', 'URL', 'ADR']) {
+        for (final tag in [
+          'NICKNAME',
+          'ORG',
+          'TITLE',
+          'TEL',
+          'EMAIL',
+          'URL',
+          'ADR',
+          'BDAY',
+          'NOTE',
+        ]) {
           expect(payload, isNot(contains(tag)));
         }
       });
@@ -75,9 +85,12 @@ void main() {
       test('are omitted when present but empty', () {
         final payload = format.buildQrString({
           'first_name': 'Ada',
+          'nickname': '',
           'org': '',
           'title': '',
           'url': '',
+          'birthday': '',
+          'note': '',
           ...phones([('', 'CELL')]),
           ...emails([('', 'HOME')]),
           ...addresses([
@@ -94,6 +107,7 @@ void main() {
         final payload = format.buildQrString({
           'first_name': 'Ada',
           'last_name': 'Lovelace',
+          'nickname': 'Countess',
           'org': 'Analytical Engines',
           'title': 'Mathematician',
           ...phones([('+15550000000', 'CELL')]),
@@ -110,18 +124,23 @@ void main() {
               'HOME',
             ),
           ]),
+          'birthday': '1815-12-10',
+          'note': 'Wrote the first program\nfor the Engine',
         });
         expect(payload, '''
 BEGIN:VCARD
 VERSION:3.0
 N:Lovelace;Ada;;;
 FN:Ada Lovelace
+NICKNAME:Countess
 ORG:Analytical Engines
 TITLE:Mathematician
 TEL;TYPE=CELL:+15550000000
 EMAIL;TYPE=HOME:ada@example.com
 URL:https://example.com
 ADR;TYPE=HOME:;;12 Baker St;London;;NW1 6XE;UK
+BDAY:1815-12-10
+NOTE:Wrote the first program\\nfor the Engine
 END:VCARD''');
       });
     });
@@ -290,6 +309,7 @@ END:VCARD''');
       final values = {
         'first_name': r'A;n,a',
         'last_name': r'B\b',
+        'nickname': 'Ada, the Countess',
         'org': 'Acme; Inc.',
         'title': 'Boss, Chief',
         'url': 'https://example.com/a',
@@ -308,6 +328,8 @@ END:VCARD''');
         'addresses.0.postal_code': 'H0H 0H0',
         'addresses.0.country': 'CA',
         'addresses.0.kind': 'HOME',
+        'birthday': '1815-12-10',
+        'note': 'Line one\nLine two; with, punctuation \\ and a backslash',
       };
       final parsed = format.parse(format.buildQrString(values))!;
       expect(parsed.values, values);
@@ -375,7 +397,6 @@ END:VCARD''');
         'N (prefix)',
         'N (suffix)',
         'NOTE',
-        'BDAY',
         'PHOTO',
         'ADR (PO box)',
         'ADR (extended address)',
@@ -384,6 +405,19 @@ END:VCARD''');
       ]);
       expect(parsed.values['org'], 'Acme');
       expect(parsed.values['url'], 'u');
+      expect(parsed.values['note'], 'a');
+      expect(parsed.values['birthday'], '1990-01-01');
+    });
+
+    test('reads a basic-form BDAY into the date field, and keeps any other', () {
+      String? birthday(String bday) => format
+          .parse('BEGIN:VCARD\nN:Doe;Jo;;;\nBDAY:$bday\nEND:VCARD')!
+          .values['birthday'];
+      expect(birthday('19900412'), '1990-04-12');
+      expect(birthday('1990-04-12'), '1990-04-12');
+      // A time, or a date with no year, is left for the validator to point at.
+      expect(birthday('1990-04-12T10:00:00Z'), '1990-04-12T10:00:00Z');
+      expect(birthday('--0412'), '--0412');
     });
 
     test('falls back to FN when N is empty', () {

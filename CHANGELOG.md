@@ -4,7 +4,11 @@ What each release changes, for the people using the app. Each section becomes th
 
 ## 2026.11.1
 
-Version 15 at the highest error correction is back in Expert mode.
+A contact's nickname, birthday and note in vCard codes, and version 15 at the highest error correction is back in Expert mode.
+
+### Contacts
+
+- **vCard codes take a nickname, a birthday and a note.** The note can run over several lines. A scanned vCard carrying them no longer has to open as text for their sake. ([#20](https://github.com/Samwell9854/qrious/issues/20))
 
 ### Expert mode
 
@@ -12,7 +16,7 @@ Version 15 at the highest error correction is back in Expert mode.
 
 ### Issues
 
-Fixes #23 and #24.
+Fixes #20, #23 and #24.
 
 ## 2026.11.0
 

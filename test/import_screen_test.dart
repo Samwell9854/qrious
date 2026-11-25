@@ -16,8 +16,8 @@ final wifiPayload = WifiFormat().buildQrString({
   'hidden': 'false',
 });
 
-const vcardWithNote =
-    'BEGIN:VCARD\nVERSION:3.0\nN:Doe;Jo;;;\nFN:Jo Doe\nNOTE:hi\nEND:VCARD';
+const vcardWithPhoto =
+    'BEGIN:VCARD\nVERSION:3.0\nN:Doe;Jo;;;\nFN:Jo Doe\nPHOTO:x\nEND:VCARD';
 
 final bytes = Uint8List.fromList([1, 2, 3]);
 
@@ -135,14 +135,14 @@ void main() {
   testWidgets('a code the form would change opens as text with a notice', (
     tester,
   ) async {
-    await pumpHome(tester, payloads: [vcardWithNote]);
+    await pumpHome(tester, payloads: [vcardWithPhoto]);
     await openImage(tester);
 
     expect(find.text('Code read into Plain Text'), findsOneWidget);
     expect(selectedFormat(tester), 'Plain Text');
-    expect(payload(tester), vcardWithNote);
+    expect(payload(tester), vcardWithPhoto);
     expect(notice, findsOneWidget);
-    expect(find.textContaining('hold NOTE'), findsOneWidget);
+    expect(find.textContaining('hold PHOTO'), findsOneWidget);
 
     await tester.tap(find.text('Open in Contact (vCard) form'));
     await tester.pumpAndSettle();
@@ -171,14 +171,14 @@ void main() {
       expect(notice, findsOneWidget);
     }
 
-    await pumpHome(tester, payloads: [vcardWithNote]);
+    await pumpHome(tester, payloads: [vcardWithPhoto]);
     await read();
     await tester.tap(find.byTooltip('Dismiss'));
     await tester.pump();
     expect(notice, findsNothing);
 
     await read();
-    await tester.enterText(find.byType(TextFormField), '$vcardWithNote!');
+    await tester.enterText(find.byType(TextFormField), '$vcardWithPhoto!');
     await tester.pump();
     expect(notice, findsNothing);
 
@@ -537,7 +537,7 @@ void main() {
     final many = [for (var i = 0; i < 25; i++) 'X-LONG-PROPERTY-NAME-$i:v'];
     final longCard =
         'BEGIN:VCARD\nVERSION:3.0\nN:Doe;Jo;;;\nFN:Jo Doe\n'
-        '${many.join('\n')}\nNOTE:hi\nEND:VCARD';
+        '${many.join('\n')}\nPHOTO:x\nEND:VCARD';
 
     for (final size in [const Size(390, 844), const Size(1280, 800)]) {
       testWidgets('at ${size.width}x${size.height}', (tester) async {

@@ -38,12 +38,12 @@ void main() {
 
     test('offers a vCard with an unsupported property, naming it', () {
       const payload =
-          'BEGIN:VCARD\nVERSION:3.0\nN:Doe;Jo;;;\nFN:Jo Doe\nNOTE:hi\nEND:VCARD';
+          'BEGIN:VCARD\nVERSION:3.0\nN:Doe;Jo;;;\nFN:Jo Doe\nPHOTO:x\nEND:VCARD';
       final result = importPayload(payload);
       expect(result.format, isA<TextFormat>());
       expect(result.values[TextFormat.fieldId], payload);
       expect(result.offer!.format, isA<VCardFormat>());
-      expect(result.offer!.unsupported, ['NOTE']);
+      expect(result.offer!.unsupported, ['PHOTO']);
     });
 
     test('lands a vCard the form reproduces exactly in vCard', () {

@@ -132,6 +132,7 @@ void main() {
     await type(tester, 'City', 'Anjou');
     expect(payload(tester), contains('ADR;TYPE=HOME:;;;Anjou;;;'));
 
+    await tester.ensureVisible(find.byTooltip('Address type'));
     await tester.tap(find.byTooltip('Address type'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Work').last);

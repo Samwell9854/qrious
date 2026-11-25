@@ -91,12 +91,21 @@ class VCardFormat extends QrFormat {
   List<QrField> get fields => const [
     QrField(id: 'first_name', label: 'First Name', required: true),
     QrField(id: 'last_name', label: 'Last Name'),
+    QrField(id: 'nickname', label: 'Nickname'),
     QrField(id: 'org', label: 'Organization'),
     QrField(id: 'title', label: 'Job Title'),
     _phones,
     _emails,
     QrField(id: 'url', label: 'Website', validate: validateUrl),
     _addresses,
+    QrField(
+      id: 'birthday',
+      label: 'Birthday',
+      type: QrFieldType.date,
+      validate: validateDate,
+    ),
+    // Several lines, unlike MeCard's: vCard escapes a line break as `\n`.
+    QrField(id: 'note', label: 'Note', type: QrFieldType.multiline),
   ];
 
   @override
@@ -113,7 +122,11 @@ class VCardFormat extends QrFormat {
       'FN:${_escape(fullName)}',
     ];
 
-    for (final (tag, id) in const [('ORG', 'org'), ('TITLE', 'title')]) {
+    for (final (tag, id) in const [
+      ('NICKNAME', 'nickname'),
+      ('ORG', 'org'),
+      ('TITLE', 'title'),
+    ]) {
       final value = values[id] ?? '';
       if (value.isNotEmpty) lines.add('$tag:${_escape(value)}');
     }
@@ -144,6 +157,13 @@ class VCardFormat extends QrFormat {
       lines.add('ADR${_type(address)}:;;${parts.map(_escape).join(';')}');
     }
 
+    // BDAY is written as the date field holds it, 1985-04-12, which is RFC 2426's own
+    // example form.
+    final birthday = (values['birthday'] ?? '').trim();
+    if (birthday.isNotEmpty) lines.add('BDAY:${_escape(birthday)}');
+    final note = values['note'] ?? '';
+    if (note.isNotEmpty) lines.add('NOTE:${_escape(note)}');
+
     lines.add('END:VCARD');
     return lines.join('\n');
   }
@@ -171,7 +191,7 @@ class VCardFormat extends QrFormat {
 
   /// Reads a vCard back: lines are unfolded (RFC 2426 section 4), `TYPE=` becomes the
   /// entry's kind, and text values are unescaped. A property the form has no field
-  /// for (`NOTE`, `BDAY`, `PHOTO`, the extra components of `N:`) is reported by name.
+  /// for (`PHOTO`, the extra components of `N:`) is reported by name.
   @override
   QrParsed? parse(String payload) {
     final lines = payload
@@ -186,9 +206,12 @@ class VCardFormat extends QrFormat {
     final values = {
       'first_name': '',
       'last_name': '',
+      'nickname': '',
       'org': '',
       'title': '',
       'url': '',
+      'birthday': '',
+      'note': '',
     };
     final phones = <Map<String, String>>[];
     final emails = <Map<String, String>>[];
@@ -209,8 +232,16 @@ class VCardFormat extends QrFormat {
       final name = head.first.split('.').last.toUpperCase();
       final types = _types(head.skip(1));
 
-      // Each of these once: the form has one name, organisation, title and site.
-      if (const {'N', 'ORG', 'TITLE', 'URL'}.contains(name) &&
+      // Each of these once: the form has one of each.
+      if (const {
+            'N',
+            'NICKNAME',
+            'ORG',
+            'TITLE',
+            'URL',
+            'BDAY',
+            'NOTE',
+          }.contains(name) &&
           !seen.add(name)) {
         addOnce(unsupported, name);
         continue;
@@ -246,8 +277,21 @@ class VCardFormat extends QrFormat {
           if (org.skip(1).any((c) => c.isNotEmpty)) {
             addOnce(unsupported, 'ORG (units)');
           }
+        case 'NICKNAME':
+          values['nickname'] = _unescape(value);
         case 'TITLE':
           values['title'] = _unescape(value);
+        case 'BDAY':
+          // Back to the field's own form from the basic one, 19850412, which the
+          // RFC allows too. Any other shape (a time, a date with no year) is kept
+          // as it was, for the validator to point at.
+          final raw = _unescape(value).trim();
+          final basic = RegExp(r'^(\d{4})(\d{2})(\d{2})$').firstMatch(raw);
+          values['birthday'] = basic == null
+              ? raw
+              : '${basic[1]}-${basic[2]}-${basic[3]}';
+        case 'NOTE':
+          values['note'] = _unescape(value);
         case 'URL':
           values['url'] = _unescape(value);
         case 'TEL':
