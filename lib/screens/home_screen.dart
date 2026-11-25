@@ -641,8 +641,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (field.required && (_values[field.id] ?? '').isEmpty) return false;
       if (_errorFor(field) != null) return false;
     }
+    // A form with no required field (a contact: neither vCard nor MeCard requires any
+    // part of the name) is ready once it writes something, so that an empty form
+    // shows no code. Judged on the payload, not the values, so an entry added and
+    // left blank, or a value the mode does not write, does not count.
+    if (!_hasRequiredField) return _qrString != _emptyQrString;
     return true;
   }
+
+  bool get _hasRequiredField => _shownFields.any((f) => f.required);
+
+  /// What the current format writes for a form with nothing filled in.
+  String get _emptyQrString => _selectedFormat.buildQrString(
+    QrForm.applied(_selectedFormat.fields, const {}, expert: _expert),
+  );
+
+  /// A field's label, with a `*` after it when the field is required. It is part of
+  /// the label rather than a suffix, which Material shows only while the field has
+  /// focus or text, so that what is required can be seen before typing.
+  Widget _label(QrField field) => field.required
+      ? Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: Text(field.label, overflow: TextOverflow.ellipsis)),
+            const ExcludeSemantics(child: Text(' *')),
+          ],
+        )
+      : Text(field.label);
 
   /// Below this width the two-column layout stacks into one scrolling column.
   static const double _wideLayoutBreakpoint = 700;
@@ -1109,7 +1134,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         QrFieldType.multiline => TextFormField(
           controller: _controllers[field.id],
           decoration: InputDecoration(
-            labelText: field.label,
+            label: _label(field),
             hintText: field.hint,
             border: const OutlineInputBorder(),
             errorText: error,
@@ -1122,7 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         QrFieldType.password => TextFormField(
           controller: _controllers[field.id],
           decoration: InputDecoration(
-            labelText: field.label,
+            label: _label(field),
             hintText: field.hint,
             border: const OutlineInputBorder(),
             errorText: error,
@@ -1144,8 +1169,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         QrFieldType.date => TextFormField(
           controller: _controllers[field.id],
+          inputFormatters: const [IsoDateInputFormatter()],
+          keyboardType: TextInputType.datetime,
           decoration: InputDecoration(
-            labelText: field.label,
+            label: _label(field),
             hintText: field.hint ?? 'YYYY-MM-DD',
             border: const OutlineInputBorder(),
             errorText: error,
@@ -1159,10 +1186,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _ => TextFormField(
           controller: _controllers[field.id],
           decoration: InputDecoration(
-            labelText: field.label,
+            label: _label(field),
             hintText: field.hint,
             border: const OutlineInputBorder(),
-            suffixText: field.required ? '*' : null,
             errorText: error,
           ),
         ),
@@ -1974,8 +2000,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.red),
         ),
-        (false, _) => const Text(
-          'Fill in the required fields\nto generate a QR code',
+        (false, _) => Text(
+          _hasRequiredField
+              ? 'Fill in the required fields\nto generate a QR code'
+              : 'Fill in any field\nto generate a QR code',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey),
         ),

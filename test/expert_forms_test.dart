@@ -195,7 +195,7 @@ void main() {
   }
 
   group('reading a code that needs expert fields', () {
-    const mecard = 'MECARD:N:Jo;NOTE:hi;;';
+    const mecard = 'MECARD:N:Jo;TEL-AV:111;;';
 
     testWidgets('opens in its form in expert mode', (tester) async {
       await pumpHome(tester, payloads: [mecard]);
@@ -216,7 +216,7 @@ void main() {
       await tester.tap(find.text('Open image…'));
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('cannot hold Note in beginner mode'),
+        find.textContaining('cannot hold Video Phone Number in beginner mode'),
         findsOneWidget,
       );
       expect(

@@ -24,9 +24,11 @@ class MeCardFormat extends QrFormat {
 
   @override
   List<QrField> get fields => const [
-    QrField(id: 'first_name', label: 'First Name', required: true),
+    // No part of the name is required: DoCoMo's spec gives N: as zero or more
+    // characters, like every other field.
+    QrField(id: 'first_name', label: 'First Name'),
     QrField(id: 'last_name', label: 'Last Name'),
-    QrField(id: 'nickname', label: 'Nickname', expert: true),
+    QrField(id: 'nickname', label: 'Nickname'),
     // How the name is read aloud, which Japanese phones file contacts under.
     QrField(id: 'sound', label: 'Name Reading', hint: 'やまだ,たろう', expert: true),
     QrField(
@@ -50,9 +52,8 @@ class MeCardFormat extends QrFormat {
       label: 'Birthday',
       type: QrFieldType.date,
       validate: validateDate,
-      expert: true,
     ),
-    QrField(id: 'note', label: 'Note', expert: true),
+    QrField(id: 'note', label: 'Note'),
   ];
 
   /// The properties beyond the name, in the order they are written, by tag and
@@ -71,8 +72,13 @@ class MeCardFormat extends QrFormat {
   String buildQrString(Map<String, String> values) {
     final firstName = _escapeComponent(values['first_name'] ?? '');
     final lastName = _escapeComponent(values['last_name'] ?? '');
-    // N: is "last,first", the comma being structure; with only one of the two
-    // there is nothing to separate.
+    // N: is "last,first", the comma being structure. Either name alone is written
+    // bare. The spec would mark a last name alone as `Doe,`, but the iPhone camera
+    // takes the comma into the first name: with one side of the comma empty it ignores
+    // the comma and guesses at the whole, and one word is always a first name. No form
+    // of a last name alone reached its last name in testing (`Doe`, `Doe,`, `Doe,,`,
+    // `Doe, ` and ` Doe` all became the first name), so it is written bare, which
+    // at least leaves no stray comma.
     final name = [lastName, firstName].where((s) => s.isNotEmpty).join(',');
     final properties = ['N:$name'];
 
@@ -142,7 +148,8 @@ class MeCardFormat extends QrFormat {
       switch (tag) {
         case 'N':
           final names = _components(raw);
-          // One name is the first name, which is the one the form requires.
+          // One name, with no comma, is the first name; `Doe,` is a last name alone,
+          // as the spec has it, though Qrious writes a last name alone bare.
           if (names.length == 1) {
             values['first_name'] = names[0];
           } else {

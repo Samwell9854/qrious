@@ -123,18 +123,17 @@ void main() {
       expect(format.buildQrString(parsed.values), format.buildQrString(values));
     });
 
-    test('are expert-only, the birthday a date', () {
+    test('are the name reading and video phone; the birthday is a date', () {
       final expert = {
         for (final f in format.fields)
           if (f.expert) f.id: f.type,
       };
       expect(expert, {
-        'nickname': QrFieldType.text,
         'sound': QrFieldType.text,
         'videophone': QrFieldType.text,
-        'birthday': QrFieldType.date,
-        'note': QrFieldType.text,
       });
+      final birthday = format.fields.singleWhere((f) => f.id == 'birthday');
+      expect(birthday.type, QrFieldType.date);
     });
   });
 
@@ -222,6 +221,38 @@ void main() {
     test('returns null for another prefix', () {
       expect(format.parse('WIFI:S:x;;'), isNull);
       expect(format.parse('BEGIN:VCARD'), isNull);
+    });
+  });
+
+  group('no part of the name is required', () {
+    test(
+      'a last name alone is written bare, as the iPhone reads it cleanly',
+      () {
+        final payload = format.buildQrString({'last_name': 'Doe'});
+        expect(payload, 'MECARD:N:Doe;;');
+        // Read back as the one name, which writes the same code.
+        expect(format.buildQrString(format.parse(payload)!.values), payload);
+      },
+    );
+
+    test('reads the spec\'s `Doe,` as a last name alone', () {
+      final parsed = format.parse('MECARD:N:Doe,;;')!;
+      expect(parsed.values['last_name'], 'Doe');
+      expect(parsed.values['first_name'], '');
+    });
+
+    test('a first name alone is written bare', () {
+      expect(format.buildQrString({'first_name': 'Jo'}), 'MECARD:N:Jo;;');
+    });
+
+    test('with no name, N is still written', () {
+      final payload = format.buildQrString({'phone': '5550000'});
+      expect(payload, 'MECARD:N:;TEL:5550000;;');
+      expect(format.buildQrString(format.parse(payload)!.values), payload);
+    });
+
+    test('no field is required', () {
+      expect(format.fields.where((f) => f.required), isEmpty);
     });
   });
 }

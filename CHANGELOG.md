@@ -4,11 +4,17 @@ What each release changes, for the people using the app. Each section becomes th
 
 ## 2026.11.1
 
-A contact's nickname, birthday and note in vCard codes, and version 15 at the highest error correction is back in Expert mode.
+Contacts get a nickname, a birthday and a note, and no longer need a first name. Version 15 at the highest error correction is back in Expert mode.
 
 ### Contacts
 
-- **vCard codes take a nickname, a birthday and a note.** The note can run over several lines. A scanned vCard carrying them no longer has to open as text for their sake. ([#20](https://github.com/Samwell9854/qrious/issues/20))
+- **A nickname, a birthday and a note** in both contact formats, without Expert mode. In a vCard the note can run over several lines. A scanned contact carrying them no longer has to open as text for their sake. ([#20](https://github.com/Samwell9854/qrious/issues/20))
+- **No name is required.** A contact can have a last name alone, or no name at all, such as a vCard for a company, with only its organisation and phone. The code appears as soon as any field is filled in. In a MeCard, the iPhone files a last name alone as the first name, whatever way it is written; a vCard keeps it apart.
+- **A birthday can be typed as digits alone**: 19851204 becomes 1985-12-04 as you type.
+
+### Forms
+
+- **Required fields are marked with a \* from the start**, rather than only once you click into them.
 
 ### Expert mode
 

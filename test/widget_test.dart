@@ -126,11 +126,13 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
         final focused = FocusManager.instance.primaryFocus!.context!;
-        final label = focused
-            .findAncestorWidgetOfExactType<TextField>()
-            ?.decoration
-            ?.labelText;
-        if (label == 'Country') return;
+        final label =
+            focused
+                    .findAncestorWidgetOfExactType<TextField>()
+                    ?.decoration
+                    ?.label
+                as Text?;
+        if (label?.data == 'Note') return;
         final box = focused.findRenderObject()! as RenderBox;
         expect(
           box.localToGlobal(Offset.zero).dx,

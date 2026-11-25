@@ -442,4 +442,36 @@ END:VCARD''');
       expect(format.parse('hello'), isNull);
     });
   });
+
+  group('no part of the name is required', () {
+    test('a last name alone fills N and FN', () {
+      final payload = format.buildQrString({'last_name': 'Lovelace'});
+      expect(payload, contains('\nN:Lovelace;;;;\nFN:Lovelace\n'));
+      expect(format.parse(payload)!.values['last_name'], 'Lovelace');
+      expect(format.parse(payload)!.values['first_name'], '');
+    });
+
+    test('an organisation alone is what FN says, and reads back as one', () {
+      final payload = format.buildQrString({'org': 'Acme'});
+      expect(payload, contains('\nN:;;;;\nFN:Acme\nORG:Acme\n'));
+      final parsed = format.parse(payload)!;
+      expect(parsed.values['org'], 'Acme');
+      expect(parsed.values['first_name'], '');
+      expect(format.buildQrString(parsed.values), payload);
+    });
+
+    test('with no name or organisation, N and FN are still written', () {
+      final payload = format.buildQrString({
+        'phones': '1',
+        'phones.0.number': '5550000',
+        'phones.0.kind': 'CELL',
+      });
+      expect(payload, startsWith('BEGIN:VCARD\nVERSION:3.0\nN:;;;;\nFN:\n'));
+      expect(format.buildQrString(format.parse(payload)!.values), payload);
+    });
+
+    test('no field is required', () {
+      expect(format.fields.where((f) => f.required), isEmpty);
+    });
+  });
 }

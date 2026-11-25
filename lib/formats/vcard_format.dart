@@ -89,7 +89,9 @@ class VCardFormat extends QrFormat {
 
   @override
   List<QrField> get fields => const [
-    QrField(id: 'first_name', label: 'First Name', required: true),
+    // No part of the name is required: RFC 2426 asks for the N and FN properties,
+    // not for anything in them, and a card can stand for an organisation alone.
+    QrField(id: 'first_name', label: 'First Name'),
     QrField(id: 'last_name', label: 'Last Name'),
     QrField(id: 'nickname', label: 'Nickname'),
     QrField(id: 'org', label: 'Organization'),
@@ -112,7 +114,7 @@ class VCardFormat extends QrFormat {
   String buildQrString(Map<String, String> values) {
     final firstName = values['first_name'] ?? '';
     final lastName = values['last_name'] ?? '';
-    final fullName = [firstName, lastName].where((s) => s.isNotEmpty).join(' ');
+    final fullName = _fullName(firstName, lastName, values['org'] ?? '');
     final lines = [
       'BEGIN:VCARD',
       'VERSION:3.0',
@@ -166,6 +168,14 @@ class VCardFormat extends QrFormat {
 
     lines.add('END:VCARD');
     return lines.join('\n');
+  }
+
+  /// What FN says: the name, given name first; with no name, the organisation, as
+  /// vCard 4 has it for a card that stands for one (RFC 6350 section 6.2.1); with
+  /// neither, empty, which still writes the line RFC 2426 requires.
+  static String _fullName(String first, String last, String org) {
+    final name = [first, last].where((s) => s.isNotEmpty).join(' ');
+    return name.isNotEmpty ? name : org;
   }
 
   /// The entry's kind as a TYPE= parameter, or nothing for a kind of no type.
@@ -339,10 +349,12 @@ class VCardFormat extends QrFormat {
     List<String> unsupported,
   ) {
     // A card with no usable N: still has its formatted name; the whole of it goes
-    // in the one field the form requires, as there is no telling where it splits.
+    // in the first name, as there is no telling where it splits. Not when it is the
+    // organisation, which is what FN says for a card with no name.
     if (values['first_name']!.isEmpty &&
         values['last_name']!.isEmpty &&
-        fullName.isNotEmpty) {
+        fullName.isNotEmpty &&
+        fullName != values['org']) {
       values['first_name'] = fullName;
     }
     putEntries(values, 'phones', phones);
