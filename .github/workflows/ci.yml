@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 env:
-  FLUTTER_VERSION: 3.50.0
+  FLUTTER_VERSION: 3.50.1
 
 jobs:
   check:
