@@ -100,7 +100,7 @@ Both contact formats take the address as separate parts, from the shared `addres
 
 ## Testing against real readers
 
-The unit tests check payloads against the specs; what a phone does with them is a separate question, and readers differ. Scan results recorded in these docs and in code comments come from the **iPhone camera app**, the reader most people will try first. It reads vCard faithfully, `ADR` components included; it does not undo MeCard's backslash escapes; and it guesses at the parts of a one-line address. Where a reader and a spec disagree, follow the spec unless the reader's behaviour breaks something the user can see, and record which reader it was.
+The unit tests check payloads against the specs; what a phone does with them is a separate question, and readers differ. Scan results recorded in these docs and in code comments come from the **iPhone camera app**, the reader most people will try first. It reads vCard faithfully, `ADR` components included; it does not undo MeCard's backslash escapes; and it guesses at the parts of a one-line address. Where a reader and a spec disagree, follow the spec unless the reader's behaviour breaks something the user can see, and record which reader it was. Results tested payload by payload are in [readers.md](readers.md).
 
 ## Importing
 
